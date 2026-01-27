@@ -26,9 +26,9 @@ public:
 	virtual void C_virt1();
 };
 
-// Multiple Inheritance example 
+// Multiple Inheritance example
 // /Docs/bh-dc-07-Sabanal_Yason-WP.pdf
-class Ex2 
+class Ex2
 {
 	int var1 = 0x01E20000;
 

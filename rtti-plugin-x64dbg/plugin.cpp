@@ -92,30 +92,30 @@ static bool cbRttiCommand(int argc, char* argv[])
 
 PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 {
-    switch(info->hEntry)
-    {
-    case MENU_AUTO_LABEL_VFTABLE:
+	switch(info->hEntry)
+	{
+	case MENU_AUTO_LABEL_VFTABLE:
 		settings.auto_label_vftable = !settings.auto_label_vftable;
 		SaveConfig();
-        break;
+		break;
 
-    case MENU_DUMP_RTTI:
+	case MENU_DUMP_RTTI:
 		DumpRttiWindow(GUI_DUMP);
-        break;
+		break;
 
 	case MENU_ABOUT:
 		MessageBoxA(GuiGetWindowHandle(), "RTTI plugin version v" RTTI_PLUGIN_VERSION "\n\nhttps://gitlab.com/colinsenner/Rtti-plugin-x64", "About", 0);
 		break;
-    default:
-        break;
-    }
+	default:
+		break;
+	}
 }
 
 //Initialize your plugin data here.
 bool pluginInit(PLUG_INITSTRUCT* initStruct)
 {
 	_plugin_registercommand(pluginHandle, RTTI_COMMAND, cbRttiCommand, true);
-    return true; //Return false to cancel loading the plugin.
+	return true; //Return false to cancel loading the plugin.
 }
 
 //Deinitialize your plugin data here.
@@ -130,9 +130,9 @@ void pluginSetup()
 	SetConfigPath();
 	LoadConfig();
 
-    int labelMenu = _plugin_menuadd(hMenu, "Auto-Label");
+	int labelMenu = _plugin_menuadd(hMenu, "Auto-Label");
 	_plugin_menuaddentry(labelMenu, MENU_AUTO_LABEL_VFTABLE, "vftable");
-    _plugin_menuaddentry(hMenuDump, MENU_DUMP_RTTI, "&Dump Rtti");
+	_plugin_menuaddentry(hMenuDump, MENU_DUMP_RTTI, "&Dump Rtti");
 
 	// About menu
 	_plugin_menuaddentry(hMenu, MENU_ABOUT, "&About");
