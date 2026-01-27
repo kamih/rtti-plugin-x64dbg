@@ -43,7 +43,7 @@ void DumpRttiWindow(int hWindow)
 
 	char cmd[256] = { 0 };
 	sprintf_s(cmd, "%s %zX", RTTI_COMMAND, alignedStart);
-	
+
 	// Run the cbRttiCommand
 	DbgCmdExec(cmd);
 }
@@ -75,7 +75,7 @@ static bool cbRttiCommand(int argc, char* argv[])
 		}
 
 		RTTI rtti(addr);
-		
+
 		if (rtti.IsValid())
 		{
 			AutoLabel(rtti);
@@ -86,7 +86,7 @@ static bool cbRttiCommand(int argc, char* argv[])
 		else
 			dprintf("No RTTI information found for address %p\n", addr);
 	}
-	
+
 	return true;
 }
 
