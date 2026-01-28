@@ -186,18 +186,18 @@
   <ItemGroup>
     <ClCompile Include="Lib\config.cpp" />
     <ClCompile Include="Lib\ini.cpp" />
-    <ClCompile Include="Lib\MemHelpers.cpp" />
+    <ClCompile Include="Lib\RTINFO.cpp" />
     <ClCompile Include="Lib\RTTI.cpp" />
+    <ClCompile Include="Lib\Utils.cpp" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="pluginmain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lib\config.h" />
     <ClInclude Include="Lib\ini.h" />
-    <ClInclude Include="Lib\macros.h" />
-    <ClInclude Include="Lib\MemHelpers.h" />
     <ClInclude Include="Lib\RTTI.h" />
     <ClInclude Include="Lib\RTINFO.h" />
+    <ClInclude Include="Lib\Utils.h" />
     <ClInclude Include="plugin.h" />
     <ClInclude Include="pluginmain.h" />
     <ClInclude Include="pluginsdk\bridgegraph.h" />

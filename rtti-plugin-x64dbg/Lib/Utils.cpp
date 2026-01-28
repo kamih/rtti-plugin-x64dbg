@@ -1,8 +1,47 @@
-#pragma once
-#include "..\plugin.h"
+#include "Utils.h"
+#include <iomanip>
+#include <sstream>
 
-// When you have an address in the executable and you need to get the base address of the executable
-duint GetModuleBaseAddress(duint addr)
+const UINT UNDNAME_NO_ECSU = 0x08000;  // Suppress enum/class/struct/union
+
+extern "C" char *__cdecl __unDName(char *outputString, const char *name, int maxStringLength, void *pAlloc, void *pFree, unsigned short disableFlags);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+namespace {
+	struct FreeDeleter {
+		void operator()(char *ptr) const {
+			free(ptr);
+		}
+	};
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+std::string Demangle(const char *sz_name, bool noECSU)
 {
-	return ((addr << 32) >> 32);
+	auto flags = UNDNAME_32_BIT_DECODE | UNDNAME_NO_ARGUMENTS;
+	if (noECSU)
+		flags |= UNDNAME_NO_ECSU;
+	std::unique_ptr<char[], FreeDeleter> tmp(__unDName(nullptr, sz_name, 0, malloc, free, flags));
+	if (!tmp)
+		return "";
+	return std::string(tmp.get());
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool DbgDerefMemRead(duint addr, void *dest, duint size)
+{
+	duint val = 0;
+	if (!DbgMemRead(addr, &val, sizeof(val)))
+		return false;
+	if (!DbgMemRead(val, dest, size))
+		return false;
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+std::string AddrToStr(duint addr, bool pad)
+{
+    std::ostringstream ss;
+    ss << "0x" << std::uppercase << std::hex;
+	if (pad)
+		ss << std::setfill('0') << std::setw(sizeof(addr)*2);
+    ss << addr;
+    return ss.str();
 }

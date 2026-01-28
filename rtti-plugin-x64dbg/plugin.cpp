@@ -4,10 +4,10 @@
 #include "Lib\Rtti.h"
 
 #define RTTI_COMMAND "rtti"
-#define RTTI_PLUGIN_VERSION "1.0"
+#define RTTI_PLUGIN_VERSION "2"
 
 // Checks the settings and auto-labels the enabled ones
-bool AutoLabel(RTTI rtti)
+bool AutoLabel(const RTTI &rtti)
 {
 	if (!rtti.IsValid())
 		return false;
@@ -17,10 +17,10 @@ bool AutoLabel(RTTI rtti)
 		char sz_vftable_label[MAX_COMMENT_SIZE] = "";
 
 		// If there isn't a label already there
-		if (!DbgGetLabelAt(rtti.GetVftable(), SEG_DEFAULT, sz_vftable_label))
+		if (!DbgGetLabelAt(rtti.GetPVFTable(), SEG_DEFAULT, sz_vftable_label))
 		{
-			string label = rtti.name + "_vftable";
-			if (!DbgSetLabelAt(rtti.GetVftable(), label.c_str()))
+			string label = rtti.GetTypeName() + "_vftable";
+			if (!DbgSetLabelAt(rtti.GetPVFTable(), label.c_str()))
 				return false;
 		}
 	}
@@ -74,13 +74,12 @@ static bool cbRttiCommand(int argc, char* argv[])
 			return false;
 		}
 
-		RTTI rtti(addr);
+		RTTI rtti(addr, true);
 
 		if (rtti.IsValid())
 		{
 			AutoLabel(rtti);
-			string rttiInfo = rtti.ToString();
-
+			auto &rttiInfo = rtti.GetClassHierarchyString();
 			dprintf("%s\n", rttiInfo.c_str());
 		}
 		else
@@ -104,7 +103,7 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 		break;
 
 	case MENU_ABOUT:
-		MessageBoxA(GuiGetWindowHandle(), "RTTI plugin version v" RTTI_PLUGIN_VERSION "\n\nhttps://gitlab.com/colinsenner/Rtti-plugin-x64", "About", 0);
+		MessageBoxA(GuiGetWindowHandle(), "RTTI plugin version v" RTTI_PLUGIN_VERSION "\n\nhttps://github.com/kamih/rtti-plugin-x64dbg", "About", 0);
 		break;
 	default:
 		break;

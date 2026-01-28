@@ -1,348 +1,259 @@
 #include "Rtti.h"
-#include "..\plugin.h"
-#include "macros.h"
-#include "MemHelpers.h"
-#include "RTINFO.h"
-#include <string>
-#include <memory>
 
-#define UNDNAME_TYPE_ONLY 0x2000
+#define RTTI_LEA(A) ((m_completeObjectLocator.signature == 1 ? m_moduleBase : 0)+(A))
 
-extern "C" char *__cdecl __unDName(char *outputString, const char *name, int maxStringLength, void *pAlloc, void *pFree, unsigned short disableFlags);
-
-using namespace std;
-
-namespace {
-	struct FreeDeleter {
-		void operator()(char *ptr) const {
-			free(ptr);
-		}
-	};
-}
-
-string Demangle(char* sz_name)
-{
-	unique_ptr<char[], FreeDeleter> tmp(__unDName(nullptr, sz_name, 0, malloc, free, UNDNAME_TYPE_ONLY));
-	if (!tmp)
-		return false;
-	return string(tmp.get());
-}
-
-duint GetBaseAddress(duint addr)
-{
-	return DbgFunctions()->ModBaseFromAddr(addr);
-}
-
-RTTI::RTTI(duint addr)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+RTTI::RTTI(duint addr, bool log)
 {
 	m_this = addr;
-
-	m_isValid = GetRTTI();
+	m_isValid = GetRTTIFromThis(log);
 }
-
-duint RTTI::GetAddressVftable()
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::GetRTTIFromThis(bool log)
 {
-	duint vftable = 0;
-
-	// Read the value at this to m_vftable
-	if (!DbgMemRead(m_this, &vftable, sizeof(duint)))
-		return 0;
-
-	return vftable;
-}
-
-bool RTTI::GetVftable()
-{
-	duint vftable = GetAddressVftable();
-
-	if (vftable == 0)
+	if (log) dprintf("=====================================================================================\n");
+	if (!GetVFTableFromThis(log))
 		return false;
-
-	// Read offset at the vftable -4 is a pointer to a complete object locator
-	duint pCompleteObjectLocator = (duint)SUBPTR(vftable, sizeof(duint));
-
-	// Read the entire vftable
-	if (!DbgMemRead(pCompleteObjectLocator, &m_vftable, sizeof(vftable_t)))
+	if (!GetCOLFromVFTable(log))
 		return false;
-
-	return true;
-}
-
-bool RTTI::GetCompleteObjectLocator()
-{
-	// Read the RTTICompleteObjectLocator
-	if (!DbgMemRead((duint)m_vftable.pCompleteObjectLocator, &m_completeObjectLocator, sizeof(RTTICompleteObjectLocator)))
-		return false;
-
-	return true;
-}
-
-bool RTTI::GetTypeDescriptor()
-{
-
-#ifdef _WIN64
-	duint moduleBase = GetBaseAddress((duint)m_vftable.pCompleteObjectLocator);
-	duint pTypeDescriptor = (duint)ADDPTR(moduleBase, m_completeObjectLocator.pTypeDescriptor);
-#else
-	duint pTypeDescriptor = m_completeObjectLocator.pTypeDescriptor;
-#endif
-
-	// Read the TypeDescriptor
-	if (!DbgMemRead(pTypeDescriptor, &m_typeDescriptor, sizeof(TypeDescriptor)))
-		return false;
-
-	return true;
-}
-
-bool RTTI::GetClassHierarchyDescriptor()
-{
-#ifdef _WIN64
-	duint moduleBase = GetBaseAddress((duint)m_vftable.pCompleteObjectLocator);
-	duint pClassHierarchyDescriptor = (duint)ADDPTR(moduleBase, m_completeObjectLocator.pClassHierarchyDescriptor);
-#else
-	duint pClassHierarchyDescriptor = m_completeObjectLocator.pClassHierarchyDescriptor;
-#endif
-
-	if (!DbgMemRead(pClassHierarchyDescriptor, &m_classHierarchyDescriptor, sizeof(RTTIClassHierarchyDescriptor)))
-		return false;
-
-	return true;
-}
-
-bool RTTI::GetBaseClasses()
-{
-#ifdef _WIN64
-	duint addrBaseClassArray = (duint)ADDPTR(m_moduleBase, m_classHierarchyDescriptor.pBaseClassArray);
-#else
-	duint addrBaseClassArray = (duint)m_classHierarchyDescriptor.pBaseClassArray;
-#endif
-
-	duint addr = 0;
-	duint numBaseClasses = m_classHierarchyDescriptor.numBaseClasses;
-
-	if (numBaseClasses > MAX_BASE_CLASSES)
-	{
-		dprintf("Found %d base classes in the ClassHierarchyDescriptor, this seems unlikely, maximum we can save is %d.  Aborting.\n", m_classHierarchyDescriptor.numBaseClasses, MAX_BASE_CLASSES);
-		return false;
+	// Get module base addr
+	if (m_completeObjectLocator.signature == 1) {
+		m_moduleBase = (duint)SUBPTR(m_pcol, m_completeObjectLocator.pSelf);
+	} else {
+		m_moduleBase = DbgMemFindBaseAddr(m_pcol, 0);
 	}
-
-	// Populate the BaseClassArray
-	// For each of the numBaseClasses populate the BaseClassDescriptors
-	// Start at index 1, the first is always the base class, skip it
-	for (size_t i = 1; i < numBaseClasses; i++)
-	{
-		addr = addrBaseClassArray + (i * sizeof(DWORD));
-		DWORD val = 0;
-
-		if (!DbgMemRead(addr, &val, sizeof(DWORD)))
-			return false;
-
-#ifdef _WIN64
-		addr = (duint)ADDPTR(m_moduleBase, val);
-#else
-		addr = val;
-#endif
-		
-		// Copy in the BaseClassDescriptor
-		if (!DbgMemRead(addr, &m_baseClassDescriptors[i], sizeof(RTTIBaseClassDescriptor)))
-			return false;
-
-		auto baseClass = m_baseClassDescriptors[i];
-
-#ifdef _WIN64
-		addr = (duint)ADDPTR(m_moduleBase, m_baseClassDescriptors[i].pTypeDescriptor);
-#else
-		addr = m_baseClassDescriptors[i].pTypeDescriptor;
-#endif
-
-		// Copy in the BaseClassTypeDescriptor
-		if (!DbgMemRead(addr, &m_baseClassTypeDescriptors[i], sizeof(TypeDescriptor)))
-			return false;
-
-		auto baseClassType = m_baseClassTypeDescriptors[i];
-
-		string className = Demangle(baseClassType.sz_decorated_name);
-
-		// Assign the vbtable entry
-		m_vbtable[i] = 0;
-
-		duint mdisp = baseClass.where.mdisp;
-		duint pdisp = baseClass.where.pdisp;
-		duint vdisp = baseClass.where.vdisp;
-
-		//
-		// Save each offset so we can display to the user where it is inside the class
-		//
-
-		m_baseClassOffsets[i] = (duint)ADDPTR(m_this, mdisp);
-
-		if (baseClass.where.pdisp != -1)
-		{
-			// The docs aren't very clear here.
-			// The pdisp field is the offset of the vbtable from this
-			// Inside the vbtable we read at vdisp to get the final offset from the vbtable of the class
-			m_vbtable[i] = (duint)ADDPTR(m_this, baseClass.where.pdisp);
-
-			duint pMemberOffsets = 0;
-			DWORD memberOffsets[MAX_BASE_CLASSES] = { 0 };
-
-			// Read the value at the vdisp to find where the class is off the vbtable of this class
-			//duint vbtable = 0;
-			if (!DbgMemRead(m_vbtable[i], &pMemberOffsets, sizeof(pMemberOffsets)))
-			{
-				dprintf("Problem reading the vbtable.\n");
-				continue;
-			}
-
-			if (!DbgMemRead(pMemberOffsets, &memberOffsets, sizeof(memberOffsets)))
-			{
-				dprintf("Problem reading the member offsets.\n");
-				continue;
-			}
-
-			m_baseClassOffsets[i] = memberOffsets[i];
-		}
-
-		dprintf("\n");
-		m_baseClassDescriptors[i].Print(className);
-	}
-	
-	return true;
-}
-
-bool RTTI::GetRTTI()
-{
-	dprintf("=====================================================================================\n");
-
-	// Parse vftable
-	if (GetVftable() == false)
-	{
-		dprintf("Couldn't get the vftable.\n");
-		return false;
-	}
-	duint vftable = GetAddressVftable();
-	dprintf("vftable: %p\n", vftable);
-	m_vftable.Print();
-
-	// Parse CompleteObjectLocator
-	if (GetCompleteObjectLocator() == false)
-	{
-		dprintf("Couldn't find the CompleteObjectLocator.\n");
-		return false;
-	}
-	m_completeObjectLocator.Print();
-
-	m_moduleBase = GetBaseAddress((duint)m_vftable.pCompleteObjectLocator);
+	// Get module name
+	char modName[256] = {0};
+	DbgGetModuleAt(m_pcol, modName);
+	m_moduleName.assign(modName);
 
 	// Parse TypeDescriptor
-	if (GetTypeDescriptor() == false)
-	{
-		dprintf("Couldn't parse the TypeDescriptor.\n");
+	if (!m_typeDescriptor.load(RTTI_LEA(m_completeObjectLocator.pTypeDescriptor))) {
+		if (log) dprintf("Couldn't parse the TypeDescriptor.\n");
 		return false;
 	}
-	m_typeDescriptor.Print();
-
-	// Demangle the name and copy it 
-	name = Demangle(m_typeDescriptor.sz_decorated_name);
-
-	// Read the ClassHierarchyDescriptor
-	if (GetClassHierarchyDescriptor() == false)
-	{
-		dprintf("Couldn't parse the ClassHierarchyDescriptor.\n");
+	// Parse ClassHierarchyDescriptor
+	if (!GetCHDFromCOL(log))
 		return false;
-	}
-	m_classHierarchyDescriptor.Print();
 
-	if (GetBaseClasses() == false)
-	{
-		dprintf("Couldn't parse base classes.\n");
+	if (log) {
+		dprintf("module base:  0x%p %s\n", (void*)m_moduleBase, m_moduleName.c_str());
+		dprintf("this:         0x%p\n", (void*)m_this);
+		dprintf("completeThis: 0x%p\n", (void*)m_completeThis);
+		dprintf("pvftable:     0x%p\n", (void*)m_pvftable);
+		dprintf("pcol:         0x%p\n", (void*)m_pcol);
+		m_completeObjectLocator.print(m_moduleBase);
+		m_typeDescriptor.print();
+		m_classHierarchyDescriptor.print(m_moduleBase);
+	}
+	// Parse all BaseClassDescriptors
+	if (!GetBaseClassesFromCHD(log))
 		return false;
-	}
 
+	InitClassHierarchyTree();
 	return true;
 }
-
-RTTIBaseClassDescriptor RTTI::GetBaseClassDescriptor(size_t idx)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::GetVFTableFromThis(bool log)
 {
-	if (!m_isValid)
-		return RTTIBaseClassDescriptor();
-
-	if (idx > m_classHierarchyDescriptor.numBaseClasses)
-		return RTTIBaseClassDescriptor();
-
-	return m_baseClassDescriptors[idx];
-}
-
-string RTTI::ToString()
-{
-	string result = "";
-
-	if (!m_isValid)
-		return result;
-
-	result = name.c_str();
-
-	if (m_classHierarchyDescriptor.numBaseClasses > 1)
-	{
-		result.append("  :  ");
-
-		// Base Class formatting
-		// Appends each base class in this format
-		// 'ClassA (+12), ClassB (+1C)'
-		for (size_t i = 1; i < m_classHierarchyDescriptor.numBaseClasses; i++)
-		{
-			auto baseClass = GetBaseClassDescriptor(i);
-			auto baseClassType = m_baseClassTypeDescriptors[i];
-			auto baseClassName = Demangle(m_baseClassTypeDescriptors[i].sz_decorated_name);
-			auto baseClassOffset = m_baseClassOffsets[i];
-
-			result.append(baseClassName.c_str() + string(" "));
-
-			// Print offsets
-			result.append("(+");
-
-			char hexStr[32] = { 0 };
-			sprintf_s(hexStr, sizeof(hexStr), "%zX", GetBaseClassOffsetFromThis(i));
-			
-			result.append(hexStr);
-			result.append(")");
-
-			bool isLastClass = i == m_classHierarchyDescriptor.numBaseClasses - 1;
-			if (!isLastClass)
-				result.append(",");
-
-			result.append(" ");
+	// this usually points to pvftable, but not always
+	m_ppvftable = m_this;
+	// first, deref the value at this if it's a valid address
+	duint vftable = 0;
+	if (!DbgMemRead(m_ppvftable, &m_pvftable, sizeof(duint))) {
+		if (log) dprintf("Couldn't read m_ppvftable: 0x%p.\n", (void*)m_ppvftable);
+		return false;
+	}
+	if (!DbgMemRead(m_pvftable, &vftable, sizeof(duint))) {
+		if (log) dprintf("Couldn't read m_pvftable: 0x%p.\n", (void*)m_pvftable);
+		return false;
+	}
+	// If **this is a vbtable, the low 32bits should be zero
+	// (as the first entry is the offset from vbptr to the beginning of the complete object)
+	if ((vftable & 0xFFFFFFFF) == 0) {
+#ifdef _WIN64
+		// offset is the second entry in the vbtable
+		DWORD offset = (DWORD)(vftable >> 32);
+#else
+		// we only read the first DWORD, we need the second for the offset
+		DWORD offset = 0;
+		if (!DbgMemRead(m_pvftable+sizeof(DWORD), &offset, sizeof(DWORD))) {
+			if (log) dprintf("Couldn't read vbtable entry at: 0x%p.\n", (void*)(m_pvftable+sizeof(DWORD)));
+			return false;
+		}
+#endif
+		// now that we have the offset from this, we can get the pvftable
+		m_ppvftable = m_this+offset;
+		if (!DbgMemRead(m_ppvftable, &m_pvftable, sizeof(duint))) {
+			if (log) dprintf("Couldn't read (vbtable offset) m_ppvftable: 0x%p.\n", (void*)m_ppvftable);
+			return false;
 		}
 	}
-
-	return result;
+	// todo: check that it's an addr in this module's .rdata (which is where vftables are)
+	if (!DbgMemIsValidReadPtr(m_pvftable)) {
+		if (log) dprintf("m_pvftable (0x%p) invalid address.\n", (void *) m_pvftable);
+		return false;
+	}
+	return true;
 }
-
-duint RTTI::GetVbtable(size_t idx)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::GetCOLFromVFTable(bool log)
 {
-	if (idx > (sizeof(m_vbtable) / MAX_BASE_CLASSES))
-		return 0;
-
-	return m_vbtable[idx];
+	// pointer to a complete object locator is stored before start of vftable
+	duint ppCompleteObjectLocator = (duint)SUBPTR(m_pvftable, sizeof(duint));
+	if (!DbgMemRead(ppCompleteObjectLocator, &m_pcol, sizeof(duint))) {
+		if (log) dprintf("Couldn't read ppCompleteObjectLocator: 0x%p.\n", (void*)ppCompleteObjectLocator);
+		return false;
+	}
+	// Read the RTTICompleteObjectLocator
+	if (!m_completeObjectLocator.load(m_pcol)) {
+		if (log) dprintf("Couldn't read m_completeObjectLocator from: 0x%p.\n", (void*)m_pcol);
+		return false;
+	}
+	// Check the signature (should be 0 for 32bit, 1 for 64bit)
+	if (m_completeObjectLocator.signature > 1) {
+		if (log) dprintf("Unexpected RTTICompleteObjectLocator.signature: %d\n", m_completeObjectLocator.signature);
+		return false;
+	}
+	m_completeThis = m_ppvftable - m_completeObjectLocator.offset;
+	return true;
 }
-
-duint RTTI::GetBaseClassOffset(size_t idx)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Get ClassHierarchyDescriptor from CompleteObjectLocator
+bool RTTI::GetCHDFromCOL(bool log)
 {
-	if (idx > (sizeof(m_baseClassOffsets) / MAX_BASE_CLASSES))
-		return 0;
-
-	return m_baseClassOffsets[idx];
+	if (!m_classHierarchyDescriptor.load(RTTI_LEA(m_completeObjectLocator.pClassHierarchyDescriptor))) {
+		if (log) dprintf("Couldn't parse the ClassHierarchyDescriptor.\n");
+		return false;
+	}
+	if (m_classHierarchyDescriptor.signature != 0) {
+		if (log) dprintf("Unexpected RTTIClassHierarchyDescriptor.signature: %d\n", m_classHierarchyDescriptor.signature);
+		return false;
+	}
+	if (m_classHierarchyDescriptor.numBaseClasses == 0) {
+		if (log) dprintf("Unexpected RTTIClassHierarchyDescriptor.numBaseClasses: 0\n");
+		return false;
+	}
+	return true;
 }
-
-duint RTTI::GetBaseClassOffsetFromThis(size_t idx)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::GetBaseClassesFromCHD(bool log)
 {
-	duint vbtable = GetVbtable(idx);
-	duint offsetToThis = (duint)SUBPTR(vbtable, m_this);
-
-	return (duint)ADDPTR(offsetToThis, GetBaseClassOffset(idx));
+	const unsigned int numBaseClasses = m_classHierarchyDescriptor.numBaseClasses;
+	// Read the pointer/offset array
+	std::vector<DWORD> pBaseClass(numBaseClasses, 0);
+	const duint pBaseClassArray = RTTI_LEA(m_classHierarchyDescriptor.pBaseClassArray);
+	if (!DbgMemRead(pBaseClassArray, (void*)pBaseClass.data(), sizeof(DWORD)*numBaseClasses)) {
+		if (log) dprintf("Couldn't read pBaseClassArray: 0x%p.\n", (void*)pBaseClassArray);
+		return false;
+	}
+	m_baseClassDescriptors.resize(numBaseClasses);
+	m_baseClassTypeDescriptors.resize(numBaseClasses);
+	m_baseClassOffsets.resize(numBaseClasses);
+	m_typeNames.resize(numBaseClasses);
+	// For each of the numBaseClasses populate the BaseClassDescriptors
+	for (unsigned int i = 0; i < numBaseClasses; ++i)
+	{
+		// Copy in the BaseClassDescriptor
+		duint addr = RTTI_LEA(pBaseClass[i]);
+		if (!m_baseClassDescriptors[i].load(addr)) {
+			if (log) dprintf("Couldn't load m_baseClassDescriptors[%d] from: 0x%p.\n", i, (void*)addr);
+			return false;
+		}
+		auto &baseClass = m_baseClassDescriptors[i];
+		// Copy in the BaseClassTypeDescriptor
+		addr = RTTI_LEA(baseClass.pTypeDescriptor);
+		if (!m_baseClassTypeDescriptors[i].load(addr)) {
+			if (log) dprintf("Couldn't load m_baseClassTypeDescriptors[%d] from: 0x%p.\n", i, (void*)addr);
+			return false;
+		}
+		m_typeNames[i] = Demangle(m_baseClassTypeDescriptors[i].sz_decorated_name, i > 0);
+		if (log) baseClass.print(m_moduleBase, m_typeNames[i], i, numBaseClasses);
+		const int mdisp = baseClass.where.mdisp;
+		const int pdisp = baseClass.where.pdisp;
+		const int vdisp = baseClass.where.vdisp;
+		// Save each offset so we can display to the user where it is inside the class
+		m_baseClassOffsets[i] = mdisp;
+		if (pdisp != -1) {
+			const duint pp_vbtable = (duint)ADDPTR(m_completeThis, pdisp);
+			duint p_vbtable = 0;
+			if (log) dprintf("        pp_vbtable: 0x%p\n", (void*)pp_vbtable);
+			// read the vbtable addr
+			if (!DbgMemRead(pp_vbtable, &p_vbtable, sizeof(duint))) {
+				if (log) dprintf("        Problem reading p_vbtable.\n");
+				continue;
+			}
+			const duint p_offset = (duint)ADDPTR(p_vbtable, vdisp);
+			if (log) dprintf("        p_vbtable:  0x%p\n", (void *) p_vbtable);
+			int offset = 0;
+			if (!DbgMemRead(p_offset, &offset, sizeof(int))) {
+				if (log) dprintf("        Problem reading offset.\n");
+				continue;
+			}
+			m_baseClassOffsets[i] += pdisp + offset;
+			if (log) dprintf("        offset:     +0x%X\n", m_baseClassOffsets[i]);
+		}
+		// If this is the index of the base class this points to, save it
+		if (m_baseClassOffsets[i] > 0 &&
+			m_completeThis + m_baseClassOffsets[i] == m_this)
+			m_thisTypeIndex = i;
+	}
+	return true;
 }
-
-bool RTTI::IsValid()
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void RTTI::InitClassHierarchyTree()
 {
-	return m_isValid;
+	// Create the class hierarchy tree
+	m_classHierarchyTree = std::make_unique<CHTreeNode>(0);
+	BuildClassHierarchyTree(1, m_classHierarchyDescriptor.numBaseClasses, m_classHierarchyTree);
+	std::ostringstream sstr;
+	sstr << "[" << m_moduleName << ":" << AddrToStr(m_this) << "] ";
+	if (m_thisTypeIndex) {
+		auto thisClass = Demangle(m_baseClassTypeDescriptors[m_thisTypeIndex].sz_decorated_name);
+		sstr << "(" << thisClass << "*) ";
+	}
+	sstr << m_typeNames[0];
+	CHTreeToString(sstr, m_classHierarchyTree);
+	m_classHierarchyStr = sstr.str();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void RTTI::BuildClassHierarchyTree(unsigned int startIdx, unsigned int endIdx, const CHTreeNodePtr &rootNode)
+{
+	for (unsigned int i = startIdx; i < endIdx; ++i) {
+		auto baseClassNode = std::make_unique<CHTreeNode>(i);
+		auto &baseClass = m_baseClassDescriptors[i];
+		if (baseClass.numContainedBases > 0) {
+			BuildClassHierarchyTree(i + 1, i + 1 + baseClass.numContainedBases, baseClassNode);
+			i += baseClass.numContainedBases;
+		}
+		rootNode->baseClasses.push_back(std::move(baseClassNode));
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void RTTI::CHTreeToString(std::ostringstream &sstr, const CHTreeNodePtr &pnode) const
+{
+	const auto node = pnode.get();
+	if (!node)
+		return;
+	if (!node->baseClasses.empty())
+		sstr << ": ";
+	for (auto &child : node->baseClasses) {
+		if (child != *node->baseClasses.begin())
+			sstr << ", ";
+		auto idx = child->index;
+		auto &classDesc = m_baseClassDescriptors[idx];
+		if (classDesc.attributes & BCD_VBOFCONTOBJ)
+			sstr << "virtual ";
+		sstr << m_typeNames[idx];
+		if (m_baseClassOffsets[idx]) {
+			sstr << "(+";
+			sstr << std::uppercase << std::hex << m_baseClassOffsets[idx];
+			sstr << ")";
+		}
+		if (!child->baseClasses.empty()) {
+			sstr << "[";
+			CHTreeToString(sstr, child);
+			sstr << "]";
+		}
+	}
 }

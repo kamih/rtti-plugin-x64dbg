@@ -287,19 +287,16 @@
     <ClInclude Include="Lib\ini.h">
       <Filter>Lib</Filter>
     </ClInclude>
-    <ClInclude Include="Lib\macros.h">
-      <Filter>Lib</Filter>
-    </ClInclude>
     <ClInclude Include="Lib\config.h">
-      <Filter>Lib</Filter>
-    </ClInclude>
-    <ClInclude Include="Lib\MemHelpers.h">
       <Filter>Lib</Filter>
     </ClInclude>
     <ClInclude Include="Lib\RTTI.h">
       <Filter>Lib</Filter>
     </ClInclude>
     <ClInclude Include="Lib\RTINFO.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Lib\Utils.h">
       <Filter>Lib</Filter>
     </ClInclude>
   </ItemGroup>
@@ -372,10 +369,13 @@
     <ClCompile Include="Lib\config.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
-    <ClCompile Include="Lib\MemHelpers.cpp">
+    <ClCompile Include="Lib\RTTI.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
-    <ClCompile Include="Lib\RTTI.cpp">
+    <ClCompile Include="Lib\RTINFO.cpp">
+      <Filter>Lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Lib\Utils.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
   </ItemGroup>
