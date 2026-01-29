@@ -29,7 +29,7 @@ bool AutoLabel(const RTTI &rtti)
 }
 
 // Get the current window selection, aligns it to 4 byte boundaries and dumps it
-void DumpRttiWindow(int hWindow)
+void DumpRttiWindow(GUISELECTIONTYPE hWindow)
 {
 	if (!DbgIsDebugging())
 	{
