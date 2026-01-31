@@ -2,53 +2,79 @@
 
 #define RTTI_LEA(A) ((m_completeObjectLocator.signature == 1 ? m_moduleBase : 0)+(A))
 
+constexpr size_t gScanBufSize	= 0x20000;
+constexpr size_t gScanBufAlign	= 0x10000;
+static AlignedBufferPtr gScanBuffer;
+
 //// static ////////////////////////////////////////////////////////////////////////////////////////////////
 void RTTI::ScanSection(const char *modName, duint modBase, duint secBase, size_t size)
 {
-	duint val = 0;
+	if (!gScanBuffer)
+		gScanBuffer = AlignedBufferPtr((BYTE*)_aligned_malloc(gScanBufSize, gScanBufAlign));
+	duint memVal = 0;
 	duint pCOL = 0;
 	int numVFuncs = 0;
-	dprintf("=====================================================================================\n");
-	dprintf("[%s:0x%p] size: 0x%X\n", modName, secBase, size);
-	for (duint addr = secBase; addr < secBase + size; addr += sizeof(duint)) {
-		if (!DbgMemRead(addr, &val, sizeof(duint))) {
-			dprintf("ERROR trying to read 0x%p!\n", addr);
+	int numCOLs = 0;
+	Log("=====================================================================================\n");
+	Log("[%s:0x%p] size: 0x%X\n", modName, secBase, size);
+	for (duint offset = 0; offset < size; offset += sizeof(duint)) {
+		// Read mem buffer in large chunks for better performance
+		const duint memAddr = secBase + offset;
+		const duint bufOffset = offset % gScanBufSize;
+		if (!bufOffset) {
+			const duint offsetEnd = std::min(size, offset + gScanBufSize);
+			const duint readSize = offsetEnd - offset;
+			if (!DbgMemRead(memAddr, gScanBuffer.get(), readSize)) {
+				Log("ERROR trying to read 0x%X bytes at 0x%p!\n", readSize, memAddr);
+				break;
+			}
 		}
-		if (!val || !DbgMemIsValidReadPtr(val)) {
+		if (bufOffset + sizeof(duint) > gScanBufSize) {
+			Log("ERROR trying to read past end of buffer! bufOffset: 0x%X\n", bufOffset);
+			break;
+		}
+		memVal = *reinterpret_cast<duint*>(gScanBuffer.get()+bufOffset);
+		if (!memVal || !DbgMemIsValidReadPtr(memVal)) {
 			if (pCOL) {
 				// end of vftable
-				dprintf("  numVFuncs: %d\n", numVFuncs);
+				Log("  numVFuncs: %d\n", numVFuncs);
 				pCOL = 0;
 			}
 			continue;
 		}
-		RTTI rtti = RTTI::FromCompleteObjectLocatorAddr(modName, modBase, val, false);
-		if (rtti.IsValid()) {
+		RTTI rtti = RTTI::FromCompleteObjectLocatorAddr(modName, modBase, memVal, false);
+		if (!rtti.IsValid()) {
+			if (pCOL)
+				numVFuncs++;
+		} else {
+			numCOLs++;
 			if (pCOL) {
 				// end of vftable
-				dprintf("  numVFuncs: %d\n", numVFuncs);
+				Log("  numVFuncs: %d\n", numVFuncs);
 			}
-			pCOL = val;
+			pCOL = memVal;
 			// vftable starts after pCOL
-			addr += sizeof(duint);
-			numVFuncs = 1;
-			dprintf("%s\n", rtti.GetClassHierarchyString().c_str());
-			dprintf("  pCOL: 0x%p\n", (void*)pCOL);
-			dprintf("  pVFT: 0x%p\n", (void*)addr);
+			const duint pvftable = memAddr + sizeof(duint);
+			numVFuncs = 0;
+			Log("%s\n", rtti.GetClassHierarchyString().c_str());
+			Log("  pCOL: 0x%p\n", (void*)pCOL);
+			Log("  pVFT: 0x%p\n", (void*)pvftable);
 			// get xrefs to the pVFT, these are usually in constructors and destructors
-			XREF_INFO xref{0};
-			if (DbgXrefGet(addr, &xref)) {
-				dprintf("  pVFT xrefs:");
+			// FIXME: this only works if xAnalyzer has been run on this module
+			/*XREF_INFO xref{0};
+			if (DbgXrefGet(pvftable, &xref)) {
+				Log("  pVFT xrefs:");
 				for (int i = 0; i < xref.refcount; ++i)
 					if (xref.references[i].type == XREF_DATA)
-						dprintf(" 0x%p", (void *) xref.references[i].addr);
-				dprintf("\n");
-			}
-			continue;
+						LogNoTime(" 0x%p", (void *) xref.references[i].addr);
+				LogNoTime("\n");
+			}*/
 		}
-		if (pCOL)
-			numVFuncs++;
 	}
+	if (pCOL) {
+		Log("  numVFuncs: %d\n", numVFuncs);
+	}
+	Log("[%s:0x%p] COLs found: %d\n", modName, secBase, numCOLs);
 }
 //// static ////////////////////////////////////////////////////////////////////////////////////////////////
 RTTI RTTI::FromObjectThisAddr(duint addr, bool log)

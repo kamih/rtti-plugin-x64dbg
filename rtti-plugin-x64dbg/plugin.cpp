@@ -7,33 +7,47 @@
 #define RTTI_COMMAND "rtti"
 #define RTTI_PLUGIN_VERSION "2"
 
-// Set of modules we know don't have RTTI (and are slow to scan)
+// Set of modules we know don't have RTTI (or/and are slow to scan)
 std::set<std::string> gScanIgnoreModules;
 
 // Scans all module .rdata sections for RTTI data
 void ScanMemForRTTI()
 {
-	GuiLogRedirect("rtti_log.txt");
+	SetLogFileName(L"rtti_log.txt");
+	dputs("Start of module RTTI scan.");
 	auto dbgFn = DbgFunctions();
+	dbgFn->RefreshModuleList();
+	dbgFn->MemUpdateMap();
 	MEMMAP mm{0};
 	DbgMemMap(&mm);
 	for (int i = 0; i < mm.count; ++i) {
+		GuiStatusBarPrintf("[" PLUGIN_NAME "] Scanning for RTTI data: %d/%d\n", i, mm.count);
 		GuiProcessEvents();
 		auto &p = mm.page[i];
-		if (strstr(p.info, "\".rdata\"")) {
-			duint secBase = (duint)p.mbi.BaseAddress;
-			char modName[256] = {0};
-			if (!dbgFn->ModNameFromAddr(secBase, modName, true))
-				continue;
-			// If this is in our module ignore list, skip it
-			if (gScanIgnoreModules.count(modName))
-				continue;
-			duint modBase = 0;
-			if ((modBase = dbgFn->ModBaseFromAddr(secBase)))
-				RTTI::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
+		// We're only interested in rdata sections
+		if (p.mbi.Type != MEM_IMAGE || p.mbi.Protect != PAGE_READONLY || !strstr(p.info, "\".rdata\""))
+			continue;
+		const duint secBase = (duint)p.mbi.BaseAddress;
+		const duint modBase = dbgFn->ModBaseFromAddr(secBase);
+		if (!modBase) {
+			dprintf("ERROR: couldn't get modbase from secBase: 0x%p!\n", secBase);
+			continue;
 		}
+		// Skip system modules if option is set
+		if (settings.skip_system_modules && dbgFn->ModGetParty(modBase) == mod_system)
+			continue;
+		char modName[256] = {0};
+		if (!dbgFn->ModNameFromAddr(secBase, modName, true)) {
+			dprintf("ERROR: couldn't get mod name from secBase: 0x%p!\n", secBase);
+			continue;
+		}
+		// If this is in our module ignore list, skip it
+		if (gScanIgnoreModules.count(modName))
+			continue;
+		RTTI::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
 	}
-	GuiLogRedirectStop();
+	dputs("End of module RTTI scan. Log saved to: rtti_log.txt");
+	CloseLogFile();
 }
 
 // Checks the settings and auto-labels the enabled ones
