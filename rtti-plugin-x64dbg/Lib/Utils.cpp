@@ -1,6 +1,19 @@
 #include "Utils.h"
 #include <iomanip>
 #include <sstream>
+#include <time.h>
+
+static FILE *gFileOut = 0;
+static DWORD gStartTickCount = 0;
+constexpr int gLogBufferLen = 1024;
+
+struct RelTime
+{
+	int hours;
+	int minutes;
+	int seconds;
+	int milliseconds;
+};
 
 const UINT UNDNAME_NO_ECSU = 0x08000;  // Suppress enum/class/struct/union
 
@@ -44,4 +57,92 @@ std::string AddrToStr(duint addr, bool pad)
 		ss << std::setfill('0') << std::setw(sizeof(addr)*2);
     ss << addr;
     return ss.str();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void GetTimeSinceStart(RelTime &reltime)
+{
+	const int msPerHour = 1000 * 60 * 60;
+	const int msPerMin = 1000 * 60;
+	DWORD offset = GetTickCount() - gStartTickCount;
+	reltime.hours = offset / msPerHour;
+    offset %= msPerHour;
+	reltime.minutes = offset / msPerMin;
+    offset %= msPerMin;
+	reltime.seconds = offset / 1000;
+	reltime.milliseconds = offset % 1000;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool SetLogFileName(const std::wstring &fname)
+{
+	if (gFileOut) {
+		fclose(gFileOut);
+		gFileOut = 0;
+	}
+	if (!fname.empty()) {
+		_wfopen_s(&gFileOut, fname.c_str(), L"wt");
+		if (!gFileOut)
+			return false;
+		time_t t = time(0);
+		char buf[100];
+		ctime_s(buf, 100, &t);
+		fprintf(gFileOut, buf);
+		gStartTickCount = GetTickCount();
+	}
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void CloseLogFile()
+{
+	if (gFileOut) {
+		fclose(gFileOut);
+		gFileOut = 0;
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void FlushLogFile()
+{
+	if (gFileOut)
+		fflush(gFileOut);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void Log(const char *format, ...)
+{
+	char tmpDebugBuffer[gLogBufferLen];
+	va_list args;
+	va_start(args, format);
+	(void)_vsnprintf_s(tmpDebugBuffer, gLogBufferLen, _TRUNCATE, format, args);
+	va_end(args);
+#ifdef TEST_BUILD
+	OutputDebugStringA(tmpDebugBuffer);
+#endif
+	if (gFileOut) {
+		RelTime reltime;
+		GetTimeSinceStart(reltime);
+		fprintf(gFileOut, "%02d:%02d:%02d:%03d %s",
+			reltime.hours, reltime.minutes, reltime.seconds, reltime.milliseconds, tmpDebugBuffer);
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void LogNoTime(const char *format, ...)
+{
+	char tmpDebugBuffer[gLogBufferLen];
+	va_list args;
+	va_start(args, format);
+	(void)_vsnprintf_s(tmpDebugBuffer, gLogBufferLen, _TRUNCATE, format, args);
+	va_end(args);
+#ifdef TEST_BUILD
+	OutputDebugStringA(tmpDebugBuffer);
+#endif
+	if (gFileOut)
+		fprintf(gFileOut, "%s", tmpDebugBuffer);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void GuiStatusBarPrintf(const char *format, ...)
+{
+	char tmpDebugBuffer[gLogBufferLen];
+	va_list args;
+	va_start(args, format);
+	(void)_vsnprintf_s(tmpDebugBuffer, gLogBufferLen, _TRUNCATE, format, args);
+	va_end(args);
+	GuiAddStatusBarMessage(tmpDebugBuffer);
 }
