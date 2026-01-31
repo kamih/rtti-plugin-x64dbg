@@ -2,9 +2,39 @@
 #include "Lib\ini.h"
 #include "Lib\config.h"
 #include "Lib\Rtti.h"
+#include <set>
 
 #define RTTI_COMMAND "rtti"
 #define RTTI_PLUGIN_VERSION "2"
+
+// Set of modules we know don't have RTTI (and are slow to scan)
+std::set<std::string> gScanIgnoreModules;
+
+// Scans all module .rdata sections for RTTI data
+void ScanMemForRTTI()
+{
+	GuiLogRedirect("rtti_log.txt");
+	auto dbgFn = DbgFunctions();
+	MEMMAP mm{0};
+	DbgMemMap(&mm);
+	for (int i = 0; i < mm.count; ++i) {
+		GuiProcessEvents();
+		auto &p = mm.page[i];
+		if (strstr(p.info, "\".rdata\"")) {
+			duint secBase = (duint)p.mbi.BaseAddress;
+			char modName[256] = {0};
+			if (!dbgFn->ModNameFromAddr(secBase, modName, true))
+				continue;
+			// If this is in our module ignore list, skip it
+			if (gScanIgnoreModules.count(modName))
+				continue;
+			duint modBase = 0;
+			if ((modBase = dbgFn->ModBaseFromAddr(secBase)))
+				RTTI::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
+		}
+	}
+	GuiLogRedirectStop();
+}
 
 // Checks the settings and auto-labels the enabled ones
 bool AutoLabel(const RTTI &rtti)
@@ -73,9 +103,7 @@ static bool cbRttiCommand(int argc, char* argv[])
 			dprintf("Usage: rtti <address>\n");
 			return false;
 		}
-
-		RTTI rtti(addr, true);
-
+		RTTI rtti = RTTI::FromObjectThisAddr(addr, true);
 		if (rtti.IsValid())
 		{
 			AutoLabel(rtti);
@@ -97,13 +125,14 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 		settings.auto_label_vftable = !settings.auto_label_vftable;
 		SaveConfig();
 		break;
-
 	case MENU_DUMP_RTTI:
 		DumpRttiWindow(GUI_DUMP);
 		break;
-
 	case MENU_ABOUT:
 		MessageBoxA(GuiGetWindowHandle(), "RTTI plugin version v" RTTI_PLUGIN_VERSION "\n\nhttps://github.com/kamih/rtti-plugin-x64dbg", "About", 0);
+		break;
+	case MENU_SCAN:
+		ScanMemForRTTI();
 		break;
 	default:
 		break;
@@ -128,6 +157,9 @@ void pluginSetup()
 {
 	SetConfigPath();
 	LoadConfig();
+	gScanIgnoreModules.insert("kernelbase.dll");
+	gScanIgnoreModules.insert("kernel32.dll");
+	gScanIgnoreModules.insert("ntdll.dll");
 
 	int labelMenu = _plugin_menuadd(hMenu, "Auto-Label");
 	_plugin_menuaddentry(labelMenu, MENU_AUTO_LABEL_VFTABLE, "vftable");
@@ -135,6 +167,9 @@ void pluginSetup()
 
 	// About menu
 	_plugin_menuaddentry(hMenu, MENU_ABOUT, "&About");
+
+	// Scan menu
+	_plugin_menuaddentry(hMenu, MENU_SCAN, "&Scan memory for RTTI");
 
 	// Update the checked status
 	_plugin_menuentrysetchecked(pluginHandle, MENU_AUTO_LABEL_VFTABLE, settings.auto_label_vftable);

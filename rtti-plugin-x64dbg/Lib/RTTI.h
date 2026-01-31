@@ -10,7 +10,6 @@ struct CHTreeNode;
 using CHTreeNodePtr = std::unique_ptr<CHTreeNode>;
 struct CHTreeNode
 {
-	//~CHTreeNode() { printf("~CHTreeNode(%d)\n", index); }
 	CHTreeNode() : index(0) {}
 	CHTreeNode(unsigned int i) : index(i) {}
     unsigned int index = 0; // index to linear array of RTTIBaseClassDescriptor
@@ -20,7 +19,12 @@ struct CHTreeNode
 class RTTI
 {
 public:
-	RTTI(duint addr, bool log = false);
+	RTTI() {}
+	RTTI(const char *modName, duint modBase);
+
+	static RTTI FromObjectThisAddr(duint addr, bool log = false);
+	static RTTI FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log = false);
+	static void ScanSection(const char *modName, duint modBase, duint secBase, size_t size);
 
 	bool IsValid() const { return m_isValid; }
 	duint GetPVFTable() const { return m_pvftable; }
@@ -29,9 +33,12 @@ public:
 
 private:
 
-	bool GetRTTIFromThis(bool log);
+	bool InitFromThisAddr(duint addr, bool log);
+	bool InitFromCOLAddr(duint addr, bool log);
+	bool Init(bool log);
 	bool GetVFTableFromThis(bool log);
 	bool GetCOLFromVFTable(bool log);
+	bool GetCOLFromAddr(duint addr, bool log);
 	bool GetCHDFromCOL(bool log);
 	bool GetBaseClassesFromCHD(bool log);
 	void InitClassHierarchyTree();

@@ -2,31 +2,100 @@
 
 #define RTTI_LEA(A) ((m_completeObjectLocator.signature == 1 ? m_moduleBase : 0)+(A))
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-RTTI::RTTI(duint addr, bool log)
+//// static ////////////////////////////////////////////////////////////////////////////////////////////////
+void RTTI::ScanSection(const char *modName, duint modBase, duint secBase, size_t size)
 {
-	m_this = addr;
-	m_isValid = GetRTTIFromThis(log);
+	duint val = 0;
+	duint pCOL = 0;
+	int numVFuncs = 0;
+	dprintf("=====================================================================================\n");
+	dprintf("[%s:0x%p] size: 0x%X\n", modName, secBase, size);
+	for (duint addr = secBase; addr < secBase + size; addr += sizeof(duint)) {
+		if (!DbgMemRead(addr, &val, sizeof(duint))) {
+			dprintf("ERROR trying to read 0x%p!\n", addr);
+		}
+		if (!val || !DbgMemIsValidReadPtr(val)) {
+			if (pCOL) {
+				// end of vftable
+				dprintf("  numVFuncs: %d\n", numVFuncs);
+				pCOL = 0;
+			}
+			continue;
+		}
+		RTTI rtti = RTTI::FromCompleteObjectLocatorAddr(modName, modBase, val, false);
+		if (rtti.IsValid()) {
+			if (pCOL) {
+				// end of vftable
+				dprintf("  numVFuncs: %d\n", numVFuncs);
+			}
+			pCOL = val;
+			// vftable starts after pCOL
+			addr += sizeof(duint);
+			numVFuncs = 1;
+			dprintf("%s\n", rtti.GetClassHierarchyString().c_str());
+			dprintf("  pCOL: 0x%p\n", (void*)pCOL);
+			dprintf("  pVFT: 0x%p\n", (void*)addr);
+			// get xrefs to the pVFT, these are usually in constructors and destructors
+			XREF_INFO xref{0};
+			if (DbgXrefGet(addr, &xref)) {
+				dprintf("  pVFT xrefs:");
+				for (int i = 0; i < xref.refcount; ++i)
+					if (xref.references[i].type == XREF_DATA)
+						dprintf(" 0x%p", (void *) xref.references[i].addr);
+				dprintf("\n");
+			}
+			continue;
+		}
+		if (pCOL)
+			numVFuncs++;
+	}
+}
+//// static ////////////////////////////////////////////////////////////////////////////////////////////////
+RTTI RTTI::FromObjectThisAddr(duint addr, bool log)
+{
+	RTTI rtti;
+	rtti.m_isValid = rtti.InitFromThisAddr(addr, log);
+	return rtti;
+}
+//// static ////////////////////////////////////////////////////////////////////////////////////////////////
+RTTI RTTI::FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log)
+{
+	RTTI rtti(modName, modBase);
+	rtti.m_isValid = rtti.InitFromCOLAddr(addr, log);
+	return rtti;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool RTTI::GetRTTIFromThis(bool log)
+RTTI::RTTI(const char *modName, duint modBase)
+: m_moduleName(modName)
+, m_moduleBase(modBase)
+{
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::InitFromThisAddr(duint addr, bool log)
 {
 	if (log) dprintf("=====================================================================================\n");
+	m_this = addr;
 	if (!GetVFTableFromThis(log))
 		return false;
+	m_moduleBase = DbgFunctions()->ModBaseFromAddr(m_pvftable);
+	char modName[256] = {0};
+	if (DbgFunctions()->ModNameFromAddr(m_pvftable, modName, true))
+		m_moduleName.assign(modName);
 	if (!GetCOLFromVFTable(log))
 		return false;
-	// Get module base addr
-	if (m_completeObjectLocator.signature == 1) {
-		m_moduleBase = (duint)SUBPTR(m_pcol, m_completeObjectLocator.pSelf);
-	} else {
-		m_moduleBase = DbgMemFindBaseAddr(m_pcol, 0);
-	}
-	// Get module name
-	char modName[256] = {0};
-	DbgGetModuleAt(m_pcol, modName);
-	m_moduleName.assign(modName);
-
+	return Init(log);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::InitFromCOLAddr(duint addr, bool log)
+{
+	if (log) dprintf("=====================================================================================\n");
+	if (!GetCOLFromAddr(addr, log))
+		return false;
+	return Init(log);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::Init(bool log)
+{
 	// Parse TypeDescriptor
 	if (!m_typeDescriptor.load(RTTI_LEA(m_completeObjectLocator.pTypeDescriptor))) {
 		if (log) dprintf("Couldn't parse the TypeDescriptor.\n");
@@ -38,10 +107,12 @@ bool RTTI::GetRTTIFromThis(bool log)
 
 	if (log) {
 		dprintf("module base:  0x%p %s\n", (void*)m_moduleBase, m_moduleName.c_str());
-		dprintf("this:         0x%p\n", (void*)m_this);
-		dprintf("completeThis: 0x%p\n", (void*)m_completeThis);
-		dprintf("pvftable:     0x%p\n", (void*)m_pvftable);
-		dprintf("pcol:         0x%p\n", (void*)m_pcol);
+		dprintf("pCOL:         0x%p\n", (void*)m_pcol);
+		if (m_this) {
+			dprintf("this:         0x%p\n", (void *) m_this);
+			dprintf("completeThis: 0x%p\n", (void *) m_completeThis);
+			dprintf("pVFTable:     0x%p\n", (void *) m_pvftable);
+		}		
 		m_completeObjectLocator.print(m_moduleBase);
 		m_typeDescriptor.print();
 		m_classHierarchyDescriptor.print(m_moduleBase);
@@ -101,13 +172,22 @@ bool RTTI::GetCOLFromVFTable(bool log)
 {
 	// pointer to a complete object locator is stored before start of vftable
 	duint ppCompleteObjectLocator = (duint)SUBPTR(m_pvftable, sizeof(duint));
-	if (!DbgMemRead(ppCompleteObjectLocator, &m_pcol, sizeof(duint))) {
+	duint pcol = 0;
+	if (!DbgMemRead(ppCompleteObjectLocator, &pcol, sizeof(duint))) {
 		if (log) dprintf("Couldn't read ppCompleteObjectLocator: 0x%p.\n", (void*)ppCompleteObjectLocator);
 		return false;
 	}
+	if (!GetCOLFromAddr(pcol, log))
+		return false;
+	m_completeThis = m_ppvftable - m_completeObjectLocator.offset;
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool RTTI::GetCOLFromAddr(duint addr, bool log)
+{
 	// Read the RTTICompleteObjectLocator
-	if (!m_completeObjectLocator.load(m_pcol)) {
-		if (log) dprintf("Couldn't read m_completeObjectLocator from: 0x%p.\n", (void*)m_pcol);
+	if (!m_completeObjectLocator.load(addr)) {
+		if (log) dprintf("Couldn't read m_completeObjectLocator from: 0x%p.\n", (void*)addr);
 		return false;
 	}
 	// Check the signature (should be 0 for 32bit, 1 for 64bit)
@@ -115,7 +195,14 @@ bool RTTI::GetCOLFromVFTable(bool log)
 		if (log) dprintf("Unexpected RTTICompleteObjectLocator.signature: %d\n", m_completeObjectLocator.signature);
 		return false;
 	}
-	m_completeThis = m_ppvftable - m_completeObjectLocator.offset;
+	// Verify that self is correct
+	// (for 64bit modules, pSelf is an offset from the module base to the COL)
+	if (m_completeObjectLocator.signature == 1 &&
+		m_moduleBase != (duint)SUBPTR(addr, m_completeObjectLocator.pSelf)) {
+		if (log) dprintf("Unexpected RTTICompleteObjectLocator.pSelf: 0x%X\n", m_completeObjectLocator.pSelf);
+		return false;
+	}
+	m_pcol = addr;
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -174,6 +261,15 @@ bool RTTI::GetBaseClassesFromCHD(bool log)
 		const int vdisp = baseClass.where.vdisp;
 		// Save each offset so we can display to the user where it is inside the class
 		m_baseClassOffsets[i] = mdisp;
+		if (!m_completeThis) {
+			// If we're building the hierarchy without an object,
+			// we can't find the vbtable, so can't compute vbtable based object offset
+			if (pdisp != -1)
+				// set offset to -1 so we can print a ? for it
+				m_baseClassOffsets[i] = -1;
+			continue;
+		}
+		// Calc vbtable based object offset
 		if (pdisp != -1) {
 			const duint pp_vbtable = (duint)ADDPTR(m_completeThis, pdisp);
 			duint p_vbtable = 0;
@@ -206,11 +302,17 @@ void RTTI::InitClassHierarchyTree()
 	// Create the class hierarchy tree
 	m_classHierarchyTree = std::make_unique<CHTreeNode>(0);
 	BuildClassHierarchyTree(1, m_classHierarchyDescriptor.numBaseClasses, m_classHierarchyTree);
+	// Build full class hierarchy string
 	std::ostringstream sstr;
-	sstr << "[" << m_moduleName << ":" << AddrToStr(m_this) << "] ";
+	if (m_this)
+		sstr << "[" << AddrToStr(m_this) << "] " << m_moduleName << " ";
 	if (m_thisTypeIndex) {
 		auto thisClass = Demangle(m_baseClassTypeDescriptors[m_thisTypeIndex].sz_decorated_name);
 		sstr << "(" << thisClass << "*) ";
+	} else if (m_completeObjectLocator.offset) {
+		sstr << "(+";
+		sstr << std::uppercase << std::hex << m_completeObjectLocator.offset;
+		sstr << ") ";
 	}
 	sstr << m_typeNames[0];
 	CHTreeToString(sstr, m_classHierarchyTree);
@@ -245,10 +347,15 @@ void RTTI::CHTreeToString(std::ostringstream &sstr, const CHTreeNodePtr &pnode) 
 		if (classDesc.attributes & BCD_VBOFCONTOBJ)
 			sstr << "virtual ";
 		sstr << m_typeNames[idx];
-		if (m_baseClassOffsets[idx]) {
-			sstr << "(+";
-			sstr << std::uppercase << std::hex << m_baseClassOffsets[idx];
-			sstr << ")";
+		if (m_baseClassOffsets[idx]) {			
+			// -1: unknown vbtable offsets
+			if (m_baseClassOffsets[idx] == -1) {
+				sstr << "(+?)";
+			} else {
+				sstr << "(+";
+				sstr << std::uppercase << std::hex << m_baseClassOffsets[idx];
+				sstr << ")";
+			}
 		}
 		if (!child->baseClasses.empty()) {
 			sstr << "[";
