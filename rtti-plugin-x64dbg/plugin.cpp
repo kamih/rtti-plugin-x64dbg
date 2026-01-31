@@ -125,6 +125,10 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 		settings.auto_label_vftable = !settings.auto_label_vftable;
 		SaveConfig();
 		break;
+	case MENU_SKIP_SYSTEM_MODULES:
+		settings.skip_system_modules = !settings.skip_system_modules;
+		SaveConfig();
+		break;
 	case MENU_DUMP_RTTI:
 		DumpRttiWindow(GUI_DUMP);
 		break;
@@ -157,12 +161,11 @@ void pluginSetup()
 {
 	SetConfigPath();
 	LoadConfig();
-	gScanIgnoreModules.insert("kernelbase.dll");
-	gScanIgnoreModules.insert("kernel32.dll");
-	gScanIgnoreModules.insert("ntdll.dll");
 
-	int labelMenu = _plugin_menuadd(hMenu, "Auto-Label");
-	_plugin_menuaddentry(labelMenu, MENU_AUTO_LABEL_VFTABLE, "vftable");
+	int optMenu = _plugin_menuadd(hMenu, "Options");
+	_plugin_menuaddentry(optMenu, MENU_AUTO_LABEL_VFTABLE, "Auto-label vftable");
+	_plugin_menuaddentry(optMenu, MENU_SKIP_SYSTEM_MODULES, "Skip system modules");
+
 	_plugin_menuaddentry(hMenuDump, MENU_DUMP_RTTI, "&Dump Rtti");
 
 	// About menu
@@ -173,4 +176,31 @@ void pluginSetup()
 
 	// Update the checked status
 	_plugin_menuentrysetchecked(pluginHandle, MENU_AUTO_LABEL_VFTABLE, settings.auto_label_vftable);
+	_plugin_menuentrysetchecked(pluginHandle, MENU_SKIP_SYSTEM_MODULES, settings.skip_system_modules);
+
+	// Init module ignore set
+	gScanIgnoreModules.insert("kernelbase.dll");
+	gScanIgnoreModules.insert("kernel32.dll");
+	gScanIgnoreModules.insert("ntdll.dll");
+	gScanIgnoreModules.insert("cggl.dll");
+	gScanIgnoreModules.insert("cg.dll");
+	gScanIgnoreModules.insert("libmmd.dll");
+	gScanIgnoreModules.insert("resampledmo.dll");
+	gScanIgnoreModules.insert("dsound.dll");
+	gScanIgnoreModules.insert("opengl32.dll");
+	gScanIgnoreModules.insert("icm32.dll");
+	gScanIgnoreModules.insert("sti.dll");
+	gScanIgnoreModules.insert("msacm32.dll");
+	gScanIgnoreModules.insert("c_g18030.dll");
+	gScanIgnoreModules.insert("acgenral.dll");
+	gScanIgnoreModules.insert("glu32.dll");
+	gScanIgnoreModules.insert("iertutil.dll");
+	gScanIgnoreModules.insert("wininet.dll");
+	gScanIgnoreModules.insert("coreuicomponents.dll");
+	gScanIgnoreModules.insert("dwrite.dll");
+	gScanIgnoreModules.insert("d2d1.dll");
+	gScanIgnoreModules.insert("windows.storage.dll");
+	gScanIgnoreModules.insert("igc64.dll");
+	gScanIgnoreModules.insert("nvwgf2umx.dll");
+	gScanIgnoreModules.insert("nvoglv64.dll");
 }

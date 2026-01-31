@@ -17,13 +17,16 @@ void SetConfigPath()
 void LoadConfig()
 {
 	IniManager iniReader(config_path);
-	settings.auto_label_vftable = iniReader.ReadBoolean("settings", "auto_label_vftable", true);
+	settings.auto_label_vftable = iniReader.ReadBoolean("settings", "auto_label_vftable", false);
+	settings.skip_system_modules = iniReader.ReadBoolean("settings", "skip_system_modules", true);
 }
 
 void SaveConfig() 
 {
 	IniManager iniWriter(config_path);
 	iniWriter.WriteBoolean("settings", "auto_label_vftable", settings.auto_label_vftable);
+	iniWriter.WriteBoolean("settings", "skip_system_modules", settings.skip_system_modules);
 
 	_plugin_menuentrysetchecked(pluginHandle, MENU_AUTO_LABEL_VFTABLE, settings.auto_label_vftable);
+	_plugin_menuentrysetchecked(pluginHandle, MENU_SKIP_SYSTEM_MODULES, settings.skip_system_modules);
 }

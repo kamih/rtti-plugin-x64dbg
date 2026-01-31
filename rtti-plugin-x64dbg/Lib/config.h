@@ -4,6 +4,7 @@ using namespace std;
 
 struct settings_t {
 	bool auto_label_vftable;
+	bool skip_system_modules;
 };
 
 // Load the configuration file with the settings of the plugin
