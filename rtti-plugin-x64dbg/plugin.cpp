@@ -214,7 +214,12 @@ void pluginSetup()
 	gScanIgnoreModules.insert("dwrite.dll");
 	gScanIgnoreModules.insert("d2d1.dll");
 	gScanIgnoreModules.insert("windows.storage.dll");
+	gScanIgnoreModules.insert("windows.ui.dll");
+	gScanIgnoreModules.insert("windows.staterepositoryps.dll");
+	gScanIgnoreModules.insert("windows.storage.search.dll");
 	gScanIgnoreModules.insert("igc64.dll");
 	gScanIgnoreModules.insert("nvwgf2umx.dll");
 	gScanIgnoreModules.insert("nvoglv64.dll");
+	gScanIgnoreModules.insert("shell32.dll");
+	gScanIgnoreModules.insert("onecoreuapcommonproxystub.dll");
 }
