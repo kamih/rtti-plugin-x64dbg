@@ -280,7 +280,7 @@ bool RTTI::GetBaseClassesFromCHD(bool log)
 			if (log) dprintf("Couldn't load m_baseClassTypeDescriptors[%d] from: 0x%p.\n", i, (void*)addr);
 			return false;
 		}
-		m_typeNames[i] = Demangle(m_baseClassTypeDescriptors[i].sz_decorated_name, i > 0);
+		m_typeNames[i] = Demangle(m_baseClassTypeDescriptors[i].sz_decorated_name, true);
 		if (log) baseClass.print(m_moduleBase, m_typeNames[i], i, numBaseClasses);
 		const int mdisp = baseClass.where.mdisp;
 		const int pdisp = baseClass.where.pdisp;
@@ -338,7 +338,7 @@ void RTTI::InitClassHierarchyTree()
 	if (m_this)
 		sstr << "[" << AddrToStr(m_this) << "] " << m_moduleName << " ";
 	if (m_thisTypeIndex) {
-		auto thisClass = Demangle(m_baseClassTypeDescriptors[m_thisTypeIndex].sz_decorated_name);
+		auto thisClass = Demangle(m_baseClassTypeDescriptors[m_thisTypeIndex].sz_decorated_name, true);
 		sstr << "(" << thisClass << "*) ";
 	} else if (m_completeObjectLocator.offset) {
 		sstr << "(+";

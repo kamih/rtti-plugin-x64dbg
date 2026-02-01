@@ -63,7 +63,7 @@ bool AutoLabel(const RTTI &rtti)
 		// If there isn't a label already there
 		if (!DbgGetLabelAt(rtti.GetPVFTable(), SEG_DEFAULT, sz_vftable_label))
 		{
-			string label = rtti.GetTypeName() + "_vftable";
+			string label = rtti.GetTypeName() + "::vftable";
 			if (!DbgSetLabelAt(rtti.GetPVFTable(), label.c_str()))
 				return false;
 		}
