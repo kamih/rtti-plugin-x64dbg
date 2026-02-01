@@ -138,7 +138,7 @@ bool RTTI::Init(bool log)
 			dprintf("this:         0x%p\n", (void *) m_this);
 			dprintf("completeThis: 0x%p\n", (void *) m_completeThis);
 			dprintf("pVFTable:     0x%p\n", (void *) m_pvftable);
-		}		
+		}
 		m_completeObjectLocator.print(m_moduleBase);
 		m_typeDescriptor.print();
 		m_classHierarchyDescriptor.print(m_moduleBase);
@@ -290,35 +290,40 @@ bool RTTI::GetBaseClassesFromCHD(bool log)
 		if (!m_completeThis) {
 			// If we're building the hierarchy without an object,
 			// we can't find the vbtable, so can't compute vbtable based object offset
-			if (pdisp != -1)
+			if (pdisp != -1) {
 				// set offset to -1 so we can print a ? for it
 				m_baseClassOffsets[i] = -1;
-			continue;
-		}
-		// Calc vbtable based object offset
-		if (pdisp != -1) {
-			const duint pp_vbtable = (duint)ADDPTR(m_completeThis, pdisp);
-			duint p_vbtable = 0;
-			if (log) dprintf("        pp_vbtable: 0x%p\n", (void*)pp_vbtable);
-			// read the vbtable addr
-			if (!DbgMemRead(pp_vbtable, &p_vbtable, sizeof(duint))) {
-				if (log) dprintf("        Problem reading p_vbtable.\n");
-				continue;
+			} else {
+				// FIXME: not sure if this is correct if there's a virtual base in the hierarchy
+				if (m_baseClassOffsets[i] > 0 && m_baseClassOffsets[i] == m_completeObjectLocator.offset)
+					m_thisTypeIndex = i;
 			}
-			const duint p_offset = (duint)ADDPTR(p_vbtable, vdisp);
-			if (log) dprintf("        p_vbtable:  0x%p\n", (void *) p_vbtable);
-			int offset = 0;
-			if (!DbgMemRead(p_offset, &offset, sizeof(int))) {
-				if (log) dprintf("        Problem reading offset.\n");
-				continue;
+		} else {
+			// Calc vbtable based object offset
+			if (pdisp != -1) {
+				const duint pp_vbtable = (duint)ADDPTR(m_completeThis, pdisp);
+				duint p_vbtable = 0;
+				if (log) dprintf("        pp_vbtable: 0x%p\n", (void*)pp_vbtable);
+				// read the vbtable addr
+				if (!DbgMemRead(pp_vbtable, &p_vbtable, sizeof(duint))) {
+					if (log) dprintf("        Problem reading p_vbtable.\n");
+					continue;
+				}
+				const duint p_offset = (duint)ADDPTR(p_vbtable, vdisp);
+				if (log) dprintf("        p_vbtable:  0x%p\n", (void *) p_vbtable);
+				int offset = 0;
+				if (!DbgMemRead(p_offset, &offset, sizeof(int))) {
+					if (log) dprintf("        Problem reading offset.\n");
+					continue;
+				}
+				m_baseClassOffsets[i] += pdisp + offset;
+				if (log) dprintf("        offset:     +0x%X\n", m_baseClassOffsets[i]);
 			}
-			m_baseClassOffsets[i] += pdisp + offset;
-			if (log) dprintf("        offset:     +0x%X\n", m_baseClassOffsets[i]);
+			// If this is the index of the base class this points to, save it
+			if (m_baseClassOffsets[i] > 0 &&
+				m_completeThis + m_baseClassOffsets[i] == m_this)
+				m_thisTypeIndex = i;
 		}
-		// If this is the index of the base class this points to, save it
-		if (m_baseClassOffsets[i] > 0 &&
-			m_completeThis + m_baseClassOffsets[i] == m_this)
-			m_thisTypeIndex = i;
 	}
 	return true;
 }
@@ -373,7 +378,7 @@ void RTTI::CHTreeToString(std::ostringstream &sstr, const CHTreeNodePtr &pnode) 
 		if (classDesc.attributes & BCD_VBOFCONTOBJ)
 			sstr << "virtual ";
 		sstr << m_typeNames[idx];
-		if (m_baseClassOffsets[idx]) {			
+		if (m_baseClassOffsets[idx]) {
 			// -1: unknown vbtable offsets
 			if (m_baseClassOffsets[idx] == -1) {
 				sstr << "(+?)";
