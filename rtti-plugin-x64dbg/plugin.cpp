@@ -7,6 +7,8 @@
 #define RTTI_COMMAND "rtti"
 #define RTTI_PLUGIN_VERSION "2"
 
+using namespace RTTI;
+
 // Set of modules we know don't have RTTI (or/and are slow to scan)
 std::set<std::string> gScanIgnoreModules;
 
@@ -44,14 +46,14 @@ void ScanMemForRTTI()
 		// If this is in our module ignore list, skip it
 		if (gScanIgnoreModules.count(modName))
 			continue;
-		RTTI::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
+		TypeInfo::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
 	}
 	dputs("End of module RTTI scan. Log saved to: rtti_log.txt");
 	CloseLogFile();
 }
 
 // Checks the settings and auto-labels the enabled ones
-bool AutoLabel(const RTTI &rtti)
+bool AutoLabel(const TypeInfo &rtti)
 {
 	if (!rtti.IsValid())
 		return false;
@@ -117,7 +119,7 @@ static bool cbRttiCommand(int argc, char* argv[])
 			dprintf("Usage: rtti <address>\n");
 			return false;
 		}
-		RTTI rtti = RTTI::FromObjectThisAddr(addr, true);
+		TypeInfo rtti = TypeInfo::FromObjectThisAddr(addr, true);
 		if (rtti.IsValid())
 		{
 			AutoLabel(rtti);

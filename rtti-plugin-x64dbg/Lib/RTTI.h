@@ -1,33 +1,25 @@
 #pragma once
 
-#include "RTINFO.h"
-#include <vector>
-#include <sstream>
+#include "Utils.h"
+
+namespace RTTI {;
+
+class CompleteObjectLocator;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-struct CHTreeNode;
-using CHTreeNodePtr = std::unique_ptr<CHTreeNode>;
-struct CHTreeNode
-{
-	CHTreeNode() : index(0) {}
-	CHTreeNode(unsigned int i) : index(i) {}
-    unsigned int index = 0; // index to linear array of RTTIBaseClassDescriptor
-    std::vector<CHTreeNodePtr> baseClasses;
-};
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-class RTTI
+class TypeInfo
 {
 public:
-	RTTI() {}
-	RTTI(const char *modName, duint modBase);
+	TypeInfo() {}
+	TypeInfo(const char *modName, duint modBase);
 
-	static RTTI FromObjectThisAddr(duint addr, bool log = false);
-	static RTTI FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log = false);
+	static TypeInfo FromObjectThisAddr(duint addr, bool log = false);
+	static TypeInfo FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log = false);
 	static void ScanSection(const char *modName, duint modBase, duint secBase, size_t size);
 
 	bool IsValid() const { return m_isValid; }
 	duint GetPVFTable() const { return m_pvftable; }
-	const std::string &GetTypeName() const { return m_typeNames[0]; }
+	const std::string &GetTypeName() const;
 	const std::string &GetClassHierarchyString() const { return m_classHierarchyStr; }
 
 private:
@@ -36,14 +28,8 @@ private:
 	bool InitFromCOLAddr(duint addr, bool log);
 	bool Init(bool log);
 	bool GetVFTableFromThis(bool log);
-	bool GetCOLFromVFTable(bool log);
-	bool GetCOLFromAddr(duint addr, bool log);
-	bool GetCHDFromCOL(bool log);
-	bool GetBaseClassesFromCHD(bool log);
-	void InitClassHierarchyTree();
-	void BuildClassHierarchyTree(unsigned int startIdx, unsigned int endIdx, const CHTreeNodePtr &rootNode);
-	void CHTreeToString(std::ostringstream &sstr, const CHTreeNodePtr &pnode) const;
-
+	bool GetCOLFromVFTable(bool log);	
+	
 	std::string	m_moduleName;
 	std::string m_classHierarchyStr;
 	duint		m_this = 0;
@@ -52,15 +38,9 @@ private:
 	duint		m_pvftable = 0;
 	duint		m_pcol = 0;
 	duint		m_moduleBase = 0;
-	int			m_thisTypeIndex = 0;
 	bool		m_isValid = false;
 
-	CHTreeNodePtr							m_classHierarchyTree;
-	RTTICompleteObjectLocator				m_completeObjectLocator;
-	TypeDescriptor							m_typeDescriptor;
-	RTTIClassHierarchyDescriptor			m_classHierarchyDescriptor;
-	std::vector<RTTIBaseClassDescriptor>	m_baseClassDescriptors;
-	std::vector<TypeDescriptor>				m_baseClassTypeDescriptors;
-	std::vector<std::string>				m_typeNames;
-	std::vector<int>						m_baseClassOffsets;
+	CompleteObjectLocator	*m_completeObjectLocator = nullptr;
+};
+
 };

@@ -100,6 +100,7 @@
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>_WINDLL;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -126,6 +127,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <PreprocessorDefinitions>_WINDLL;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -148,6 +150,7 @@
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>_WINDLL;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -174,6 +177,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <PreprocessorDefinitions>_WINDLL;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -188,19 +192,26 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Lib\BaseClassDescriptor.cpp" />
+    <ClCompile Include="Lib\ClassHierarchyDescriptor.cpp" />
+    <ClCompile Include="Lib\CompleteObjectLocator.cpp" />
     <ClCompile Include="Lib\config.cpp" />
     <ClCompile Include="Lib\ini.cpp" />
-    <ClCompile Include="Lib\RTINFO.cpp" />
     <ClCompile Include="Lib\RTTI.cpp" />
+    <ClCompile Include="Lib\TypeDescriptor.cpp" />
     <ClCompile Include="Lib\Utils.cpp" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="pluginmain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Lib\BaseClassDescriptor.h" />
+    <ClInclude Include="Lib\ClassHierarchyDescriptor.h" />
+    <ClInclude Include="Lib\CompleteObjectLocator.h" />
     <ClInclude Include="Lib\config.h" />
     <ClInclude Include="Lib\ini.h" />
     <ClInclude Include="Lib\RTTI.h" />
     <ClInclude Include="Lib\RTINFO.h" />
+    <ClInclude Include="Lib\TypeDescriptor.h" />
     <ClInclude Include="Lib\Utils.h" />
     <ClInclude Include="plugin.h" />
     <ClInclude Include="pluginmain.h" />

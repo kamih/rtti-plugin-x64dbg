@@ -299,6 +299,18 @@
     <ClInclude Include="Lib\Utils.h">
       <Filter>Lib</Filter>
     </ClInclude>
+    <ClInclude Include="Lib\CompleteObjectLocator.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Lib\TypeDescriptor.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Lib\BaseClassDescriptor.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Lib\ClassHierarchyDescriptor.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="pluginsdk\x32bridge.lib">
@@ -372,10 +384,19 @@
     <ClCompile Include="Lib\RTTI.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
-    <ClCompile Include="Lib\RTINFO.cpp">
+    <ClCompile Include="Lib\Utils.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
-    <ClCompile Include="Lib\Utils.cpp">
+    <ClCompile Include="Lib\CompleteObjectLocator.cpp">
+      <Filter>Lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Lib\TypeDescriptor.cpp">
+      <Filter>Lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Lib\BaseClassDescriptor.cpp">
+      <Filter>Lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Lib\ClassHierarchyDescriptor.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
   </ItemGroup>
