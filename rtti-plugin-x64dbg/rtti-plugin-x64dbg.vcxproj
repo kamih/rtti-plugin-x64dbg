@@ -197,8 +197,8 @@
     <ClCompile Include="Lib\CompleteObjectLocator.cpp" />
     <ClCompile Include="Lib\config.cpp" />
     <ClCompile Include="Lib\ini.cpp" />
-    <ClCompile Include="Lib\RTTI.cpp" />
     <ClCompile Include="Lib\TypeDescriptor.cpp" />
+    <ClCompile Include="Lib\TypeInfo.cpp" />
     <ClCompile Include="Lib\Utils.cpp" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="pluginmain.cpp" />
@@ -209,9 +209,9 @@
     <ClInclude Include="Lib\CompleteObjectLocator.h" />
     <ClInclude Include="Lib\config.h" />
     <ClInclude Include="Lib\ini.h" />
-    <ClInclude Include="Lib\RTTI.h" />
     <ClInclude Include="Lib\RTINFO.h" />
     <ClInclude Include="Lib\TypeDescriptor.h" />
+    <ClInclude Include="Lib\TypeInfo.h" />
     <ClInclude Include="Lib\Utils.h" />
     <ClInclude Include="plugin.h" />
     <ClInclude Include="pluginmain.h" />

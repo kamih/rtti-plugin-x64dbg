@@ -1,7 +1,7 @@
 #include "plugin.h"
 #include "Lib\ini.h"
 #include "Lib\config.h"
-#include "Lib\Rtti.h"
+#include "Lib\TypeInfo.h"
 #include <set>
 
 #define RTTI_COMMAND "rtti"

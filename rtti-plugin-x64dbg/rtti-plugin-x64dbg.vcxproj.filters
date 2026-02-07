@@ -290,9 +290,6 @@
     <ClInclude Include="Lib\config.h">
       <Filter>Lib</Filter>
     </ClInclude>
-    <ClInclude Include="Lib\RTTI.h">
-      <Filter>Lib</Filter>
-    </ClInclude>
     <ClInclude Include="Lib\RTINFO.h">
       <Filter>Lib</Filter>
     </ClInclude>
@@ -309,6 +306,9 @@
       <Filter>Lib</Filter>
     </ClInclude>
     <ClInclude Include="Lib\ClassHierarchyDescriptor.h">
+      <Filter>Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Lib\TypeInfo.h">
       <Filter>Lib</Filter>
     </ClInclude>
   </ItemGroup>
@@ -381,9 +381,6 @@
     <ClCompile Include="Lib\config.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
-    <ClCompile Include="Lib\RTTI.cpp">
-      <Filter>Lib</Filter>
-    </ClCompile>
     <ClCompile Include="Lib\Utils.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
@@ -397,6 +394,9 @@
       <Filter>Lib</Filter>
     </ClCompile>
     <ClCompile Include="Lib\ClassHierarchyDescriptor.cpp">
+      <Filter>Lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Lib\TypeInfo.cpp">
       <Filter>Lib</Filter>
     </ClCompile>
   </ItemGroup>

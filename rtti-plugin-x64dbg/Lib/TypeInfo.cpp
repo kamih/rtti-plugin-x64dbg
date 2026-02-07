@@ -1,4 +1,4 @@
-#include "Rtti.h"
+#include "TypeInfo.h"
 #include "CompleteObjectLocator.h"
 
 namespace RTTI {;
