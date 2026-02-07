@@ -13,34 +13,33 @@ public:
 	TypeInfo() {}
 	TypeInfo(const char *modName, duint modBase);
 
-	static TypeInfo FromObjectThisAddr(duint addr, bool log = false);
-	static TypeInfo FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log = false);
-	static void ScanSection(const char *modName, duint modBase, duint secBase, size_t size);
+	static TypeInfo fromObjectThisAddr(duint addr, bool log = false);
+	static TypeInfo fromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log = false);
+	static void scanSection(const char *modName, duint modBase, duint secBase, size_t size);
 
-	bool IsValid() const { return m_isValid; }
-	duint GetPVFTable() const { return m_pvftable; }
-	const std::string &GetTypeName() const;
-	const std::string &GetClassHierarchyString() const { return m_classHierarchyStr; }
+	bool valid() const { return mValid; }
+	duint getVFTablep() const { return mVFTablep; }
+	const std::string &getTypeName() const;
+	const std::string &getClassHierarchyString() const { return mClassHierarchyStr; }
 
 private:
 
-	bool InitFromThisAddr(duint addr, bool log);
-	bool InitFromCOLAddr(duint addr, bool log);
-	bool Init(bool log);
-	bool GetVFTableFromThis(bool log);
-	bool GetCOLFromVFTable(bool log);	
+	bool initFromThisAddr(duint addr, bool log);
+	bool initFromCOLAddr(duint addr, bool log);
+	bool initFinish(bool log);
+	bool getVFTableFromThis(bool log);
+	bool getCOLFromVFTable(bool log);	
 	
-	std::string	m_moduleName;
-	std::string m_classHierarchyStr;
-	duint		m_this = 0;
-	duint		m_completeThis = 0;
-	duint		m_ppvftable = 0;
-	duint		m_pvftable = 0;
-	duint		m_pcol = 0;
-	duint		m_moduleBase = 0;
-	bool		m_isValid = false;
-
-	CompleteObjectLocator	*m_completeObjectLocator = nullptr;
+	CompleteObjectLocator	*mCOL = nullptr;
+	std::string				mModuleName;
+	std::string				mClassHierarchyStr;
+	duint					mThis = 0;
+	duint					mCompleteThis = 0;
+	duint					mVFtablepp = 0;
+	duint					mVFTablep = 0;
+	duint					mCOLp = 0;
+	duint					mModuleBase = 0;
+	bool					mValid = false;	
 };
 
 };

@@ -10,7 +10,7 @@ TypeDescriptor::TypeDescriptor(duint addr, const _TypeDescriptor &td)
 : mAddr(addr)
 , mVFTableAddr(td.pVFTable)
 , mDecoratedName(td.sz_decorated_name)
-, mName(Demangle(td.sz_decorated_name, true))
+, mName(demangle(td.sz_decorated_name, true))
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////

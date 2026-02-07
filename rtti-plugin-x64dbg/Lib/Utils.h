@@ -3,6 +3,8 @@
 #include <string>
 #include <memory>
 
+namespace RTTI {;
+
 template<typename T1, typename T2>
 constexpr auto ADDPTR(T1 ptr, T2  add) { return (void*)(((char*)(ptr) + size_t(add))); }
 
@@ -19,12 +21,14 @@ namespace {
 }
 using AlignedBufferPtr = std::unique_ptr<BYTE[], AlignedFreeDeleter>;
 
-bool DbgDerefMemRead(duint addr, void *dest, duint size);
-std::string Demangle(const char *sz_name, bool noECSU = false);
-std::string AddrToStr(duint addr, bool pad = true);
-bool SetLogFileName(const std::wstring &fname);
-void CloseLogFile();
-void FlushLogFile();
-void Log(const char *format, ...);
-void LogNoTime(const char *format, ...);
-void GuiStatusBarPrintf(const char *format, ...);
+bool dbgDerefMemRead(duint addr, void *dest, duint size);
+std::string demangle(const char *sz_name, bool noECSU = false);
+std::string addrToStr(duint addr, bool pad = true);
+bool setLogFileName(const std::wstring &fname);
+void closeLogFile();
+void flushLogFile();
+void log(const char *format, ...);
+void logNoTime(const char *format, ...);
+void guiStatusBarPrintf(const char *format, ...);
+
+};

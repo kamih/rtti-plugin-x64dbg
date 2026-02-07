@@ -15,7 +15,7 @@ std::set<std::string> gScanIgnoreModules;
 // Scans all module .rdata sections for RTTI data
 void ScanMemForRTTI()
 {
-	SetLogFileName(L"rtti_log.txt");
+	setLogFileName(L"rtti_log.txt");
 	dputs("Start of module RTTI scan.");
 	auto dbgFn = DbgFunctions();
 	dbgFn->RefreshModuleList();
@@ -23,7 +23,7 @@ void ScanMemForRTTI()
 	MEMMAP mm{0};
 	DbgMemMap(&mm);
 	for (int i = 0; i < mm.count; ++i) {
-		GuiStatusBarPrintf("[" PLUGIN_NAME "] Scanning for RTTI data: %d/%d\n", i, mm.count);
+		guiStatusBarPrintf("[" PLUGIN_NAME "] Scanning for RTTI data: %d/%d\n", i, mm.count);
 		GuiProcessEvents();
 		auto &p = mm.page[i];
 		// We're only interested in rdata sections
@@ -36,7 +36,7 @@ void ScanMemForRTTI()
 			continue;
 		}
 		// Skip system modules if option is set
-		if (settings.skip_system_modules && dbgFn->ModGetParty(modBase) == mod_system)
+		if (Config::settings.skip_system_modules && dbgFn->ModGetParty(modBase) == mod_system)
 			continue;
 		char modName[256] = {0};
 		if (!dbgFn->ModNameFromAddr(secBase, modName, true)) {
@@ -46,27 +46,27 @@ void ScanMemForRTTI()
 		// If this is in our module ignore list, skip it
 		if (gScanIgnoreModules.count(modName))
 			continue;
-		TypeInfo::ScanSection(modName, modBase, secBase, p.mbi.RegionSize);
+		TypeInfo::scanSection(modName, modBase, secBase, p.mbi.RegionSize);
 	}
 	dputs("End of module RTTI scan. Log saved to: rtti_log.txt");
-	CloseLogFile();
+	closeLogFile();
 }
 
 // Checks the settings and auto-labels the enabled ones
 bool AutoLabel(const TypeInfo &rtti)
 {
-	if (!rtti.IsValid())
+	if (!rtti.valid())
 		return false;
 
-	if (settings.auto_label_vftable)
+	if (Config::settings.auto_label_vftable)
 	{
 		char sz_vftable_label[MAX_COMMENT_SIZE] = "";
 
 		// If there isn't a label already there
-		if (!DbgGetLabelAt(rtti.GetPVFTable(), SEG_DEFAULT, sz_vftable_label))
+		if (!DbgGetLabelAt(rtti.getVFTablep(), SEG_DEFAULT, sz_vftable_label))
 		{
-			string label = rtti.GetTypeName() + "::vftable";
-			if (!DbgSetLabelAt(rtti.GetPVFTable(), label.c_str()))
+			std::string label = rtti.getTypeName() + "::vftable";
+			if (!DbgSetLabelAt(rtti.getVFTablep(), label.c_str()))
 				return false;
 		}
 	}
@@ -119,11 +119,11 @@ static bool cbRttiCommand(int argc, char* argv[])
 			dprintf("Usage: rtti <address>\n");
 			return false;
 		}
-		TypeInfo rtti = TypeInfo::FromObjectThisAddr(addr, true);
-		if (rtti.IsValid())
+		TypeInfo rtti = TypeInfo::fromObjectThisAddr(addr, true);
+		if (rtti.valid())
 		{
 			AutoLabel(rtti);
-			auto &rttiInfo = rtti.GetClassHierarchyString();
+			auto &rttiInfo = rtti.getClassHierarchyString();
 			dprintf("%s\n", rttiInfo.c_str());
 		}
 		else
@@ -138,12 +138,12 @@ PLUG_EXPORT void CBMENUENTRY(CBTYPE cbType, PLUG_CB_MENUENTRY* info)
 	switch(info->hEntry)
 	{
 	case MENU_AUTO_LABEL_VFTABLE:
-		settings.auto_label_vftable = !settings.auto_label_vftable;
-		SaveConfig();
+		Config::settings.auto_label_vftable = !Config::settings.auto_label_vftable;
+		Config::save();
 		break;
 	case MENU_SKIP_SYSTEM_MODULES:
-		settings.skip_system_modules = !settings.skip_system_modules;
-		SaveConfig();
+		Config::settings.skip_system_modules = !Config::settings.skip_system_modules;
+		Config::save();
 		break;
 	case MENU_DUMP_RTTI:
 		DumpRttiWindow(GUI_DUMP);
@@ -175,8 +175,8 @@ void pluginStop()
 //Do GUI/Menu related things here.
 void pluginSetup()
 {
-	SetConfigPath();
-	LoadConfig();
+	Config::setPath();
+	Config::load();
 
 	int optMenu = _plugin_menuadd(hMenu, "Options");
 	_plugin_menuaddentry(optMenu, MENU_AUTO_LABEL_VFTABLE, "Auto-label vftable");
@@ -191,8 +191,8 @@ void pluginSetup()
 	_plugin_menuaddentry(hMenu, MENU_SCAN, "&Scan memory for RTTI");
 
 	// Update the checked status
-	_plugin_menuentrysetchecked(pluginHandle, MENU_AUTO_LABEL_VFTABLE, settings.auto_label_vftable);
-	_plugin_menuentrysetchecked(pluginHandle, MENU_SKIP_SYSTEM_MODULES, settings.skip_system_modules);
+	_plugin_menuentrysetchecked(pluginHandle, MENU_AUTO_LABEL_VFTABLE, Config::settings.auto_label_vftable);
+	_plugin_menuentrysetchecked(pluginHandle, MENU_SKIP_SYSTEM_MODULES, Config::settings.skip_system_modules);
 
 	// Init module ignore set
 	gScanIgnoreModules.insert("kernelbase.dll");

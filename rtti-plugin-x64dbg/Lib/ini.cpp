@@ -3,20 +3,23 @@
 
 #include "ini.h"
 #include <iostream>
-#include <Windows.h> 
+#include <Windows.h>
 
-IniManager::IniManager(string szFileName)
+namespace RTTI {;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+IniManager::IniManager(std::string szFileName)
 {
 	m_szFileName = szFileName;
 }
-
-int IniManager::ReadInteger(char* szSection, char* szKey, int iDefaultValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int IniManager::readInteger(char *szSection, char *szKey, int iDefaultValue)
 {
 	int iResult = GetPrivateProfileInt(szSection, szKey, iDefaultValue, m_szFileName.c_str());
 	return iResult;
 }
-
-double IniManager::ReadDouble(char* szSection, char* szKey, float fltDefaultValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+double IniManager::readDouble(char *szSection, char *szKey, float fltDefaultValue)
 {
 	char szResult[MAX_PATH] = "";
 	char szDefault[MAX_PATH] = "";
@@ -26,8 +29,8 @@ double IniManager::ReadDouble(char* szSection, char* szKey, float fltDefaultValu
 	return atof(szResult);
 
 }
-
-bool IniManager::ReadBoolean(char* szSection, char* szKey, bool bolDefaultValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool IniManager::readBoolean(char *szSection, char *szKey, bool bolDefaultValue)
 {
 	char szResult[10];
 	char szDefault[10];
@@ -37,36 +40,38 @@ bool IniManager::ReadBoolean(char* szSection, char* szKey, bool bolDefaultValue)
 
 	return (strcmp(szResult, "true") == 0);
 }
-
-std::string IniManager::ReadString(char* szSection, char* szKey, const char* szDefaultValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+std::string IniManager::readString(char *szSection, char *szKey, const char *szDefaultValue)
 {
 	std::string szResult;
 	GetPrivateProfileString((LPCSTR)szSection, (LPCSTR)szKey, (LPCSTR)szDefaultValue, (LPSTR)szResult.c_str(), 255, (LPCSTR)m_szFileName.c_str());
 	return szResult;
 }
-
-void IniManager::WriteInteger(char* szSection, char* szKey, int iValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void IniManager::writeInteger(char *szSection, char *szKey, int iValue)
 {
 	char szValue[MAX_PATH] = "";
 	sprintf_s(szValue, "%d", iValue);
 	WritePrivateProfileString(szSection, szKey, szValue, m_szFileName.c_str());
 }
-
-void IniManager::WriteDouble(char* szSection, char* szKey, double fltValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void IniManager::writeDouble(char *szSection, char *szKey, double fltValue)
 {
 	char szValue[MAX_PATH] = "";
 	sprintf_s(szValue, "%lf", fltValue);
 	WritePrivateProfileString(szSection, szKey, szValue, m_szFileName.c_str());
 }
-
-void IniManager::WriteBoolean(char* szSection, char* szKey, bool bolValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void IniManager::writeBoolean(char *szSection, char *szKey, bool bolValue)
 {
 	char szValue[MAX_PATH] = "";
 	sprintf_s(szValue, "%s", bolValue ? "true" : "false");
 	WritePrivateProfileString(szSection, szKey, szValue, m_szFileName.c_str());
 }
-
-void IniManager::WriteString(char* szSection, char* szKey, char* szValue)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void IniManager::writeString(char *szSection, char *szKey, char *szValue)
 {
 	WritePrivateProfileString(szSection, szKey, szValue, m_szFileName.c_str());
 }
+
+};

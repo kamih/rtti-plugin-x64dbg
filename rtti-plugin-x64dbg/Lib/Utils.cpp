@@ -3,6 +3,8 @@
 #include <sstream>
 #include <time.h>
 
+namespace RTTI {;
+
 static FILE *gFileOut = 0;
 static DWORD gStartTickCount = 0;
 constexpr int gLogBufferLen = 1024;
@@ -28,7 +30,7 @@ namespace {
 	};
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-std::string Demangle(const char *sz_name, bool noECSU)
+std::string demangle(const char *sz_name, bool noECSU)
 {
 	auto flags = UNDNAME_32_BIT_DECODE | UNDNAME_NO_ARGUMENTS;
 	if (noECSU)
@@ -40,7 +42,7 @@ std::string Demangle(const char *sz_name, bool noECSU)
 	return std::string(tmp.get());
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool DbgDerefMemRead(duint addr, void *dest, duint size)
+bool dbgDerefMemRead(duint addr, void *dest, duint size)
 {
 	duint val = 0;
 	if (!DbgMemRead(addr, &val, sizeof(val)))
@@ -50,7 +52,7 @@ bool DbgDerefMemRead(duint addr, void *dest, duint size)
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-std::string AddrToStr(duint addr, bool pad)
+std::string addrToStr(duint addr, bool pad)
 {
     std::ostringstream ss;
     ss << "0x" << std::uppercase << std::hex;
@@ -73,7 +75,7 @@ static void GetTimeSinceStart(RelTime &reltime)
 	reltime.milliseconds = offset % 1000;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool SetLogFileName(const std::wstring &fname)
+bool setLogFileName(const std::wstring &fname)
 {
 	if (gFileOut) {
 		fclose(gFileOut);
@@ -92,7 +94,7 @@ bool SetLogFileName(const std::wstring &fname)
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CloseLogFile()
+void closeLogFile()
 {
 	if (gFileOut) {
 		fclose(gFileOut);
@@ -100,13 +102,13 @@ void CloseLogFile()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void FlushLogFile()
+void flushLogFile()
 {
 	if (gFileOut)
 		fflush(gFileOut);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void Log(const char *format, ...)
+void log(const char *format, ...)
 {
 	char tmpDebugBuffer[gLogBufferLen];
 	va_list args;
@@ -124,7 +126,7 @@ void Log(const char *format, ...)
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void LogNoTime(const char *format, ...)
+void logNoTime(const char *format, ...)
 {
 	char tmpDebugBuffer[gLogBufferLen];
 	va_list args;
@@ -138,7 +140,7 @@ void LogNoTime(const char *format, ...)
 		fprintf(gFileOut, "%s", tmpDebugBuffer);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void GuiStatusBarPrintf(const char *format, ...)
+void guiStatusBarPrintf(const char *format, ...)
 {
 	char tmpDebugBuffer[gLogBufferLen];
 	va_list args;
@@ -147,3 +149,5 @@ void GuiStatusBarPrintf(const char *format, ...)
 	va_end(args);
 	GuiAddStatusBarMessage(tmpDebugBuffer);
 }
+
+};

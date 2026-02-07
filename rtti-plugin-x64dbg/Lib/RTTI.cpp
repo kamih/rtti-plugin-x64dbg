@@ -8,7 +8,7 @@ constexpr size_t gScanBufAlign	= 0x10000;
 static AlignedBufferPtr gScanBuffer;
 
 //// static ////////////////////////////////////////////////////////////////////////////////////////////////
-void TypeInfo::ScanSection(const char *modName, duint modBase, duint secBase, size_t size)
+void TypeInfo::scanSection(const char *modName, duint modBase, duint secBase, size_t size)
 {
 	if (!gScanBuffer)
 		gScanBuffer = AlignedBufferPtr((BYTE*)_aligned_malloc(gScanBufSize, gScanBufAlign));
@@ -16,8 +16,8 @@ void TypeInfo::ScanSection(const char *modName, duint modBase, duint secBase, si
 	duint pCOL = 0;
 	int numVFuncs = 0;
 	int numCOLs = 0;
-	Log("=====================================================================================\n");
-	Log("[%s:0x%p] size: 0x%X\n", modName, secBase, size);
+	log("=====================================================================================\n");
+	log("[%s:0x%p] size: 0x%X\n", modName, secBase, size);
 	for (duint offset = 0; offset < size; offset += sizeof(duint)) {
 		// Read mem buffer in large chunks for better performance
 		const duint memAddr = secBase + offset;
@@ -26,120 +26,120 @@ void TypeInfo::ScanSection(const char *modName, duint modBase, duint secBase, si
 			const duint offsetEnd = std::min(size, offset + gScanBufSize);
 			const duint readSize = offsetEnd - offset;
 			if (!DbgMemRead(memAddr, gScanBuffer.get(), readSize)) {
-				Log("ERROR trying to read 0x%X bytes at 0x%p!\n", readSize, memAddr);
+				log("ERROR trying to read 0x%X bytes at 0x%p!\n", readSize, memAddr);
 				break;
 			}
 		}
 		if (bufOffset + sizeof(duint) > gScanBufSize) {
-			Log("ERROR trying to read past end of buffer! bufOffset: 0x%X\n", bufOffset);
+			log("ERROR trying to read past end of buffer! bufOffset: 0x%X\n", bufOffset);
 			break;
 		}
 		memVal = *reinterpret_cast<duint*>(gScanBuffer.get()+bufOffset);
 		if (!memVal || !DbgMemIsValidReadPtr(memVal)) {
 			if (pCOL) {
 				// end of vftable
-				Log("  numVFuncs: %d\n", numVFuncs);
+				log("  numVFuncs: %d\n", numVFuncs);
 				pCOL = 0;
 			}
 			continue;
 		}
-		TypeInfo rtti = TypeInfo::FromCompleteObjectLocatorAddr(modName, modBase, memVal, false);
-		if (!rtti.IsValid()) {
+		TypeInfo rtti = TypeInfo::fromCompleteObjectLocatorAddr(modName, modBase, memVal, false);
+		if (!rtti.valid()) {
 			if (pCOL)
 				numVFuncs++;
 		} else {
 			numCOLs++;
 			if (pCOL) {
 				// end of vftable
-				Log("  numVFuncs: %d\n", numVFuncs);
+				log("  numVFuncs: %d\n", numVFuncs);
 			}
 			pCOL = memVal;
 			// vftable starts after pCOL
 			const duint pvftable = memAddr + sizeof(duint);
 			numVFuncs = 0;
-			Log("%s\n", rtti.GetClassHierarchyString().c_str());
-			Log("  pCOL: 0x%p\n", (void*)pCOL);
-			Log("  pVFT: 0x%p\n", (void*)pvftable);
+			log("%s\n", rtti.getClassHierarchyString().c_str());
+			log("  pCOL: 0x%p\n", (void*)pCOL);
+			log("  pVFT: 0x%p\n", (void*)pvftable);
 			// get xrefs to the pVFT, these are usually in constructors and destructors
 			// FIXME: this only works if xAnalyzer has been run on this module
 			/*XREF_INFO xref{0};
 			if (DbgXrefGet(pvftable, &xref)) {
-				Log("  pVFT xrefs:");
+				log("  pVFT xrefs:");
 				for (int i = 0; i < xref.refcount; ++i)
 					if (xref.references[i].type == XREF_DATA)
-						LogNoTime(" 0x%p", (void *) xref.references[i].addr);
-				LogNoTime("\n");
+						logNoTime(" 0x%p", (void *) xref.references[i].addr);
+				logNoTime("\n");
 			}*/
 		}
 	}
 	if (pCOL) {
-		Log("  numVFuncs: %d\n", numVFuncs);
+		log("  numVFuncs: %d\n", numVFuncs);
 	}
-	Log("[%s:0x%p] COLs found: %d\n", modName, secBase, numCOLs);
+	log("[%s:0x%p] COLs found: %d\n", modName, secBase, numCOLs);
 }
 //// static ////////////////////////////////////////////////////////////////////////////////////////////////
-TypeInfo TypeInfo::FromObjectThisAddr(duint addr, bool log)
+TypeInfo TypeInfo::fromObjectThisAddr(duint addr, bool log)
 {
 	TypeInfo rtti;
-	rtti.m_isValid = rtti.InitFromThisAddr(addr, log);
+	rtti.mValid = rtti.initFromThisAddr(addr, log);
 	return rtti;
 }
 //// static ////////////////////////////////////////////////////////////////////////////////////////////////
-TypeInfo TypeInfo::FromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log)
+TypeInfo TypeInfo::fromCompleteObjectLocatorAddr(const char *modName, duint modBase, duint addr, bool log)
 {
 	TypeInfo rtti(modName, modBase);
-	rtti.m_isValid = rtti.InitFromCOLAddr(addr, log);
+	rtti.mValid = rtti.initFromCOLAddr(addr, log);
 	return rtti;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TypeInfo::TypeInfo(const char *modName, duint modBase)
-: m_moduleName(modName)
-, m_moduleBase(modBase)
+: mModuleName(modName)
+, mModuleBase(modBase)
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const std::string &TypeInfo::GetTypeName() const
+const std::string &TypeInfo::getTypeName() const
 {
 	static const std::string invalid("[invalid]");
-	return m_completeObjectLocator ? m_completeObjectLocator->getCompleteType()->getName() : invalid;
+	return mCOL ? mCOL->getCompleteType()->getName() : invalid;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool TypeInfo::InitFromCOLAddr(duint addr, bool log)
+bool TypeInfo::initFromCOLAddr(duint addr, bool log)
 {
 	if (log) dprintf("=====================================================================================\n");
-	if (!(m_completeObjectLocator = CompleteObjectLocator::loadFromAddr(m_moduleBase, addr, log)))
+	if (!(mCOL = CompleteObjectLocator::loadFromAddr(mModuleBase, addr, log)))
 		return false;
-	m_pcol = addr;
-	return Init(log);
+	mCOLp = addr;
+	return initFinish(log);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool TypeInfo::InitFromThisAddr(duint addr, bool log)
+bool TypeInfo::initFromThisAddr(duint addr, bool log)
 {
 	if (log) dprintf("=====================================================================================\n");
-	m_this = addr;
-	if (!GetVFTableFromThis(log))
+	mThis = addr;
+	if (!getVFTableFromThis(log))
 		return false;
-	m_moduleBase = DbgFunctions()->ModBaseFromAddr(m_pvftable);
+	mModuleBase = DbgFunctions()->ModBaseFromAddr(mVFTablep);
 	char modName[256] = {0};
-	if (DbgFunctions()->ModNameFromAddr(m_pvftable, modName, true))
-		m_moduleName.assign(modName);
-	if (!GetCOLFromVFTable(log))
+	if (DbgFunctions()->ModNameFromAddr(mVFTablep, modName, true))
+		mModuleName.assign(modName);
+	if (!getCOLFromVFTable(log))
 		return false;
-	return Init(log);
+	return initFinish(log);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool TypeInfo::GetVFTableFromThis(bool log)
+bool TypeInfo::getVFTableFromThis(bool log)
 {
 	// this usually points to pvftable, but not always
-	m_ppvftable = m_this;
+	mVFtablepp = mThis;
 	// first, deref the value at this if it's a valid address
 	duint vftable = 0;
-	if (!DbgMemRead(m_ppvftable, &m_pvftable, sizeof(duint))) {
-		if (log) dprintf("Couldn't read m_ppvftable: 0x%p.\n", (void*)m_ppvftable);
+	if (!DbgMemRead(mVFtablepp, &mVFTablep, sizeof(duint))) {
+		if (log) dprintf("Couldn't read mVFtablepp: 0x%p.\n", (void*)mVFtablepp);
 		return false;
 	}
-	if (!DbgMemRead(m_pvftable, &vftable, sizeof(duint))) {
-		if (log) dprintf("Couldn't read m_pvftable: 0x%p.\n", (void*)m_pvftable);
+	if (!DbgMemRead(mVFTablep, &vftable, sizeof(duint))) {
+		if (log) dprintf("Couldn't read mVFTablep: 0x%p.\n", (void*)mVFTablep);
 		return false;
 	}
 	// If **this is a vbtable, the low 32bits should be zero
@@ -157,51 +157,51 @@ bool TypeInfo::GetVFTableFromThis(bool log)
 		}
 #endif
 		// now that we have the offset from this, we can get the pvftable
-		m_ppvftable = m_this+offset;
-		if (!DbgMemRead(m_ppvftable, &m_pvftable, sizeof(duint))) {
-			if (log) dprintf("Couldn't read (vbtable offset) m_ppvftable: 0x%p.\n", (void*)m_ppvftable);
+		mVFtablepp = mThis+offset;
+		if (!DbgMemRead(mVFtablepp, &mVFTablep, sizeof(duint))) {
+			if (log) dprintf("Couldn't read (vbtable offset) mVFtablepp: 0x%p.\n", (void*)mVFtablepp);
 			return false;
 		}
 	}
 	// todo: check that it's an addr in this module's .rdata (which is where vftables are)
-	if (!DbgMemIsValidReadPtr(m_pvftable)) {
-		if (log) dprintf("m_pvftable (0x%p) invalid address.\n", (void *) m_pvftable);
+	if (!DbgMemIsValidReadPtr(mVFTablep)) {
+		if (log) dprintf("mVFTablep (0x%p) invalid address.\n", (void *) mVFTablep);
 		return false;
 	}
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool TypeInfo::GetCOLFromVFTable(bool log)
+bool TypeInfo::getCOLFromVFTable(bool log)
 {
 	// pointer to a complete object locator is stored before start of vftable
-	duint ppCompleteObjectLocator = (duint)SUBPTR(m_pvftable, sizeof(duint));
+	duint ppCompleteObjectLocator = (duint)SUBPTR(mVFTablep, sizeof(duint));
 	duint pcol = 0;
 	if (!DbgMemRead(ppCompleteObjectLocator, &pcol, sizeof(duint))) {
 		if (log) dprintf("Couldn't read ppCompleteObjectLocator: 0x%p.\n", (void*)ppCompleteObjectLocator);
 		return false;
 	}
-	if (!(m_completeObjectLocator = CompleteObjectLocator::loadFromAddr(m_moduleBase, pcol, log)))
+	if (!(mCOL = CompleteObjectLocator::loadFromAddr(mModuleBase, pcol, log)))
 		return false;
-	m_pcol = pcol;
-	m_completeThis = m_ppvftable - m_completeObjectLocator->getOffset();
-	m_completeObjectLocator->updateFromCompleteObject(m_completeThis);
+	mCOLp = pcol;
+	mCompleteThis = mVFtablepp - mCOL->getOffset();
+	mCOL->updateFromCompleteObject(mCompleteThis);
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool TypeInfo::Init(bool log)
+bool TypeInfo::initFinish(bool log)
 {
 	if (log) {
-		dprintf("module base:  0x%p %s\n", (void*)m_moduleBase, m_moduleName.c_str());
-		if (m_completeThis) {
-			dprintf("this:         0x%p\n", (void *) m_this);
-			dprintf("completeThis: 0x%p\n", (void *) m_completeThis);
-			dprintf("pVFTable:     0x%p\n", (void *) m_pvftable);
+		dprintf("module base:  0x%p %s\n", (void*)mModuleBase, mModuleName.c_str());
+		if (mCompleteThis) {
+			dprintf("this:         0x%p\n", (void*)mThis);
+			dprintf("completeThis: 0x%p\n", (void*)mCompleteThis);
+			dprintf("pVFTable:     0x%p\n", (void*)mVFTablep);
 		}
-		m_completeObjectLocator->print();
+		mCOL->print();
 	}
-	if (m_completeThis)
-		m_classHierarchyStr = "[" + AddrToStr(m_this) + "] " + m_moduleName + " ";
-	m_classHierarchyStr += m_completeObjectLocator->getClassHierarchyStr();
+	if (mCompleteThis)
+		mClassHierarchyStr = "[" + addrToStr(mThis) + "] " + mModuleName + " ";
+	mClassHierarchyStr += mCOL->getClassHierarchyStr();
 	return true;
 }
 

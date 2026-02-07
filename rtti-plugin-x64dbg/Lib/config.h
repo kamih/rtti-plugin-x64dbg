@@ -1,20 +1,26 @@
 #pragma once
 #include <string>
-using namespace std;
 
-struct settings_t {
+namespace RTTI {;
+namespace Config {;
+
+struct settings_t
+{
 	bool auto_label_vftable;
 	bool skip_system_modules;
 };
 
 // Load the configuration file with the settings of the plugin
-void LoadConfig();
+void load();
 
 // Save the configuration file for the settings of the plugin
-void SaveConfig();
+void save();
 
 // Set the config path to the current directory
-void SetConfigPath();
+void setPath();
 
-extern string config_path;
+extern std::string config_path;
 extern settings_t settings;
+
+};
+};
