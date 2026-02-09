@@ -3,15 +3,22 @@
 
 namespace RTTI {;
 
+constexpr int gMaxDecoratedNameSz = 2048;
 static std::map<duint, TypeDescriptor*> gTDMap; // debugged process mem addr -> our TD
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TypeDescriptor::TypeDescriptor(duint addr, const _TypeDescriptor &td)
 : mAddr(addr)
 , mVFTableAddr(td.pVFTable)
-, mDecoratedName(td.sz_decorated_name)
-, mName(demangle(td.sz_decorated_name, true))
 {
+	// read the null terminated decorated name string
+	mDecoratedName = "?";
+	const duint strAddr = addr + offsetof(_TypeDescriptor, sz_decorated_name) + 2;
+	const duint endAddr = strAddr + gMaxDecoratedNameSz;
+	char c;
+	for (duint a = strAddr; (a < endAddr) && DbgMemRead(a, (void*)&c, 1) && c; ++a)
+		mDecoratedName += c;
+	mName = demangle(mDecoratedName.c_str(), true);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void TypeDescriptor::print() const

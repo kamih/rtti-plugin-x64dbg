@@ -32,7 +32,7 @@ struct _TypeDescriptor
 {
 	duint	pVFTable;				// Always points to the type_info vftable
 	duint	spare;					// Reserved for future use
-	char	sz_decorated_name[256];	// Decorated name of the type (starts with '.?') 0 terminated
+	char	sz_decorated_name[2];	// Start of 0 terminated string for decorated type name (should be '.?')
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct _PMD

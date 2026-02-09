@@ -35,8 +35,7 @@ std::string demangle(const char *sz_name, bool noECSU)
 	auto flags = UNDNAME_32_BIT_DECODE | UNDNAME_NO_ARGUMENTS;
 	if (noECSU)
 		flags |= UNDNAME_NO_ECSU;
-	// skip '.' at the start
-	std::unique_ptr<char[], FreeDeleter> tmp(__unDName(nullptr, sz_name+1, 0, malloc, free, flags));
+	std::unique_ptr<char[], FreeDeleter> tmp(__unDName(nullptr, sz_name, 0, malloc, free, flags));
 	if (!tmp)
 		return "";
 	return std::string(tmp.get());
