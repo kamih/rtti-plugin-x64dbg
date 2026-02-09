@@ -28,8 +28,8 @@ private:
 	bool initFromCOLAddr(duint addr, bool log);
 	bool initFinish(bool log);
 	bool getVFTableFromThis(bool log);
-	bool getCOLFromVFTable(bool log);	
-	
+	bool getCOLFromVFTable(bool log);
+
 	CompleteObjectLocator	*mCOL = nullptr;
 	std::string				mModuleName;
 	std::string				mClassHierarchyStr;
@@ -39,7 +39,7 @@ private:
 	duint					mVFTablep = 0;
 	duint					mCOLp = 0;
 	duint					mModuleBase = 0;
-	bool					mValid = false;	
+	bool					mValid = false;
 };
 
 };

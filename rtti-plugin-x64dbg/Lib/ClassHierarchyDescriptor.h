@@ -24,7 +24,7 @@ class ClassHierarchyDescriptor
 public:
 	static ClassHierarchyDescriptor *loadFromAddr(duint modBase, duint addr, bool log);
 	std::string toString() const;
-	void print() const;	
+	void print() const;
 	TypeDescriptor *findBaseTypeForOffset(DWORD offset) const;
 	void updateOffsetsFromCompleteObject(duint objAddr);
 	void addCOLRef(CompleteObjectLocator *col);

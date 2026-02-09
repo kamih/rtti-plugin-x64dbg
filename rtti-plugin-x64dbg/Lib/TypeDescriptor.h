@@ -6,7 +6,7 @@ namespace RTTI {;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class TypeDescriptor
 {
-public:	
+public:
 	static TypeDescriptor *loadFromAddr(duint addr, bool log);
 	void print() const;
 	const std::string &getName() const { return mName; }

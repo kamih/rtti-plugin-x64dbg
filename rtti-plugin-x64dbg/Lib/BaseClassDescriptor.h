@@ -8,7 +8,7 @@ class ClassHierarchyDescriptor;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class BaseClassDescriptor
-{	
+{
 public:
 	static BaseClassDescriptor *loadFromAddr(duint modBase, duint addr, bool log);
 	void print(int index, int count, int offset) const;
@@ -25,7 +25,7 @@ private:
 	_PMD			mWhere;					// pointer-to-member displacement info
 	DWORD			mAttributes;			// bit flags
 	TypeDescriptor	*mTypeDesc;
-	ClassHierarchyDescriptor *mClassHierarchyDesc;	
+	ClassHierarchyDescriptor *mClassHierarchyDesc;
 };
 
 };

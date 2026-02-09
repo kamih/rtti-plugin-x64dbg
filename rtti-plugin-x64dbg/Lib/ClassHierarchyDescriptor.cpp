@@ -18,7 +18,7 @@ ClassHierarchyDescriptor::ClassHierarchyDescriptor(duint addr,
 , mBaseClassOffsets(offsets)
 , mCompleteOffsets(completeOffsets)
 {
-	assert(mBaseClasses.size() == mBaseClassOffsets.size());	
+	assert(mBaseClasses.size() == mBaseClassOffsets.size());
 	// Create the class hierarchy tree
 	mTree = std::make_unique<CHTreeNode>(0);
 	buildClassHierarchyTree(1, (unsigned int)mBaseClasses.size(), mTree);
