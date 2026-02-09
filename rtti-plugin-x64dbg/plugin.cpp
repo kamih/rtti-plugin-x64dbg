@@ -23,7 +23,7 @@ void ScanMemForRTTI()
 	MEMMAP mm{0};
 	DbgMemMap(&mm);
 	for (int i = 0; i < mm.count; ++i) {
-		guiStatusBarPrintf("[" PLUGIN_NAME "] Scanning for RTTI data: %d/%d\n", i, mm.count);
+		guiStatusBarPrintf("[" PLUGIN_NAME "] Scanning for RTTI data: %2d%%\n", i*100/mm.count);
 		GuiProcessEvents();
 		auto &p = mm.page[i];
 		// We're only interested in rdata sections
