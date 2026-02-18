@@ -32,7 +32,7 @@ int BaseClassDescriptor::calcOffsetFromCompleteObj(duint objAddr) const
 	if (!objAddr)
 		return -1;
 	// Calc vbtable based object offset
-	const duint pp_vbtable = (duint)ADDPTR(objAddr, pdisp);
+	const duint pp_vbtable = objAddr + mdisp + pdisp;
 	duint p_vbtable = 0;
 	// read the vbtable addr
 	if (!DbgMemRead(pp_vbtable, &p_vbtable, sizeof(duint))) {
